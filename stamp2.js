@@ -1,4 +1,4 @@
-function Template(el, evalSelf=true) {
+function Template(el) {
 	if(!el instanceof Element
 		&& !el instanceof DocumentFragment) return null;
 	if(el.content) el = el.content;
@@ -25,12 +25,12 @@ function Template(el, evalSelf=true) {
 		}
 		return am;
 	}
-	function oMatches(rx, str, [k,v]=[0,1]) {
+	function oMatches(rx, str, [k,v]=[0,1], sv=true) {
 		let m = uMatches(rx, str);
 		if(m.length===0) return null;
 		let obj = {};
 		for(let i of m)
-			if(!obj[i[k]]) obj[i[k]] = i[v];
+			if(!obj[i[k]]) obj[i[k]] = sv?i[v].split(rxSplit):i[v];
 		return obj;
 	}
 	function newPat(path, str) {
@@ -58,7 +58,8 @@ function Template(el, evalSelf=true) {
 			//console.log('attr', a.name, a.value);
 			if((np=newPat(pcon(path,a.name),a.value))!==null)
 				aPat.push(np);
-			if(evalSelf && (np=rxRep.exec(a.name))) {
+			np = rxRep.exec('');
+			if((np=rxRep.exec(a.name))!==null) {
 				tmpPat=[]; tmpRep=[]; tmpPath=[];
 				aRep.push({
 					pattern: path.concat('attributes', a.name, 'value'),
@@ -94,7 +95,8 @@ function Template(el, evalSelf=true) {
 				&& k!=='' && v!==''){
 				o[p] = o[p].replace(k, v);
 			}
-			else o = o[p]||'';
+			else if(o[p]!==undefined) o = o[p];
+			else return undefined;
 		}
 		return o;
 	};
@@ -105,6 +107,7 @@ function Template(el, evalSelf=true) {
 		if(tmp===undefined) tmp = rv;
 		if(el===undefined) el = tmp.element;
 		let newe = rv.new(el);
+		//console.log(tmp);
 		for(let pat of tmp.patterns) {
 			for(let k in pat.replace) {
 				let v = rv.eval(pat.replace[k], data);
@@ -117,7 +120,8 @@ function Template(el, evalSelf=true) {
 			let rdata = rv.eval(rep.value, data);
 			let rel = rv.eval(rep.element, newe);
 			for(let d of rdata) {
-				let o = Object.assign({}, data, {[rep.base]:d});
+				let o = {[rep.base]:d, '^':data};
+				//console.log(rep.element, rep.value, o);
 				reps.push(rv.exec(o, rep, rel));
 			}
 			rv.empty(rel);
