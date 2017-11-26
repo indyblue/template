@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+
+<html>
+
+ <head>
+	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1"> 
+  <title>Attributes example</title>
+  <script type="text/javascript">
+   function listAttributes() {
+     var paragraph = document.getElementById("paragraph");
+     var result = document.getElementById("result");
+
+     // First, let's verify that the paragraph has some attributes    
+     if (paragraph.hasAttributes()) {
+       var attrs = paragraph.attributes;
+       var output = "";
+       for(var i = attrs.length - 1; i >= 0; i--) {
+         output += attrs[i].name + "->" + attrs[i].value;
+       }
+       result.value = output;
+     } else {
+       result.value = "No attributes to show";
+     }
+   }
+  </script>
+ </head>
+
+<body>
+ <p id="paragraph" style="color: green;">Sample Paragraph</p>
+ <form action="">
+  <p>
+    <input type="button" value="Show first attribute name and value"
+      onclick="listAttributes();" data-silly="joe">
+    <input id="result" type="text" value="" wonky="asdrsf">
+  </p>
+ </form>
+ <script>
+ 	let b = document.body;
+	function itEl(e) {
+		if(e.nodeName==='#text') return null;
+		let rv = {t:e.tagName||e.nodeName, a:[], c:[]};
+		if(e.attributes) for(let a of e.attributes) {
+			rv.a.push({n:a.name, v:a.value});
+		}
+		for(let c of e.childNodes) {
+			let ce = itEl(c);
+			if(ce) rv.c.push(ce);
+		}
+		if(rv.a.length==0) delete rv.a;
+		if(rv.c.length==0) delete rv.c;
+		return rv;
+	}
+	console.log(JSON.stringify(itEl(b),null,3));
+ </script>
+</body>
+</html>
