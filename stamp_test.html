@@ -3,15 +3,17 @@
 <html>
 
  <head>
-	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1"> 
+	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
   <title>Attributes example</title>
+  <script type="text/javascript" src='stamp.js'></script>
   <script type="text/javascript" src='stamp2.js'></script>
  </head>
 
 <body>
 	<template id='one'>
-		<h3>List {{ name }}</h3>
-		<ul data-repeat-i='lst'>
+		<h3>List {{ name }} {{b.selse}}</h3>
+		<div>(b.c[2].e): {{b.c[2].e}}</div>
+		<ul data-repeat-i-thing='lst'>
 			<li data-idx='li-idx-{{ i.idx }}'><i>{{ i.idx }}</i> <b>{{ i.name }}</b> - {{ i.descr }}</li>
 		</ul>
 	</template>
@@ -28,7 +30,11 @@
 		}
 		return rv;
 	}
-	let data = {name:'big list'}
+	let data = {name:'big list',
+		b:{selse:'and then something else',
+			c:[10,20,{d:1,e:4}]
+		}
+	}
 	let lst = data.lst = [];
 	for(let i=0;i<1000;i++){
 		lst.push({name:rstring(30), descr:rstring(80), idx:i+1});
@@ -38,50 +44,17 @@
 	var ctx = new Stamp.Context();
 	Stamp.expandInto(document.getElementById('target'), ctx.import('one'), data);
 	console.timeEnd('ctx');
-	*/
-	
-	let rnd = (n,d=3)=> Math.round(n*10**d)/10**d;
-	let dt1=[], dt2=[];
-	for(let i=0;i<500;i++) {
-		let rx = /\b[a-z]{4}(\d+)\b/gi;
-		let str = '';
-		for(let i=0;i<1000;i++) str+='.asdf'+i;
-		
-		let start=window.performance.now();
-		if(i%2==0) {
-			//console.time('re.exec');
-			let am = [], m=rx.exec('');
-			while((m=rx.exec(str)) !== null) am.push(m[1]);
-			//console.timeEnd('re.exec');
-			//console.log(am);
-			dt1.push(rnd(window.performance.now()-start));
-		} else {
-			//console.time('.replace');
-			let am2 = [];
-			str.replace(rx, (m, d)=> {
-				am2.push(d);
-			});
-			//console.timeEnd('.replace');
-			//console.log(am2);
-			dt2.push(rnd(window.performance.now()-start));
-		}
-	}
-	let avg = x=> rnd(x.reduce((a,b)=> (a+b))/x.length);
-	console.log('exec', avg(dt1), dt1);
-	console.log('replace', avg(dt2), dt2);
-
+	// */
+	//*
+	console.time('stamp2');
 	let b = document.getElementById('one');
+	let out = document.getElementById('target');
 
 	let t = new Template(b);
-	//console.log(t);
-	console.log(JSON.stringify(t,null,3));
+	//console.log(JSON.stringify(t,null,3));
 
-	/*
-	for(let l of vals){
-		attr=b;
-		for(let a of l.p) attr = attr[a];
-		console.log(l.p.join('.'), l.v, attr);
-	}
+	t.append(out, t.exec(data));
+	console.timeEnd('stamp2');
 	//*/
  </script>
 </body>
