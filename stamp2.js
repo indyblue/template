@@ -96,8 +96,8 @@ function Template(el) {
 				delete o[ename]
 				return o.addEventListener(ename.substr(2), v.bind(o, k));
 			} else if(i==apath.length-1 && typeof o[p]==='string' && k!==''){
-				if(typeof v=='function') throw new Error("eval function - '
-					+'should this be an event handler? " +p+' - '+apath.join('.'));
+				if(typeof v=='function') throw new Error("eval function - "
+					+"should this be an event handler? " +p+' - '+apath.join('.'));
 				else o[p] = o[p].replace(k, v);
 			}
 			else if(o[p]!==undefined) o = o[p];
