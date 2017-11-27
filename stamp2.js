@@ -7,7 +7,7 @@ function Template(el) {
 	rv.patterns = [];
 	rv.repeats = [];
 	let rxMus = /{{\s*([^ \t}]+)\s*}}/ig;
-	let rxRep = /^data-repeat-([^-]+)-?.*$/g;
+	let rxRep = /^data-repeat-([^-]+)-?.*$/;
 	let rxSplit = /[.\[\]]+/g;
 
 	/*****************************************************************/
@@ -58,7 +58,6 @@ function Template(el) {
 			//console.log('attr', a.name, a.value);
 			if((np=newPat(pcon(path,a.name),a.value))!==null)
 				aPat.push(np);
-			np = rxRep.exec('');
 			if((np=rxRep.exec(a.name))!==null) {
 				tmpPat=[]; tmpRep=[]; tmpPath=[];
 				aRep.push({
@@ -91,12 +90,18 @@ function Template(el) {
 		let o = data;
 		for(let i=0;i<apath.length;i++){
 			let p = apath[i];
-			if(i==apath.length-1 && typeof o[p]==='string'
-				&& k!=='' && v!==''){
-				o[p] = o[p].replace(k, v);
+			if(i==apath.length-3 && o instanceof Element && typeof v=='function') {
+				let ename = apath[apath.length-2];
+				o.attributes.removeNamedItem(ename);
+				delete o[ename]
+				return o.addEventListener(ename.substr(2), v.bind(o, k));
+			} else if(i==apath.length-1 && typeof o[p]==='string' && k!==''){
+				if(typeof v=='function') throw new Error("eval function - '
+					+'should this be an event handler? " +p+' - '+apath.join('.'));
+				else o[p] = o[p].replace(k, v);
 			}
 			else if(o[p]!==undefined) o = o[p];
-			else return undefined;
+			else throw new Error('eval - undefined '+p+' - '+path.join('.'));
 		}
 		return o;
 	};
@@ -112,6 +117,7 @@ function Template(el) {
 			for(let k in pat.replace) {
 				let v = rv.eval(pat.replace[k], data);
 				//console.log(k, v);
+				if(typeof v==='function') k = data;
 				rv.eval(pat.pattern, newe, k, v);
 			}
 		}
@@ -119,11 +125,11 @@ function Template(el) {
 			let reps = [];
 			let rdata = rv.eval(rep.value, data);
 			let rel = rv.eval(rep.element, newe);
-			for(let d of rdata) {
-				let o = {[rep.base]:d, '^':data};
+			rdata.forEach((d,i)=> {
+				let o = {[rep.base]:d, '^':data, '^i':i, '^v':rep.value };
 				//console.log(rep.element, rep.value, o);
 				reps.push(rv.exec(o, rep, rel));
-			}
+			});
 			rv.empty(rel);
 			//console.log(reps.map(x=> x.childNodes));
 			rv.append(rel, reps, true);
