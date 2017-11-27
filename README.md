@@ -17,10 +17,9 @@ benchmarking against jgregorio's project
   - this should save time both in iterating the DOM and also in performing a lot of repetitive ops each time
 
 TODO list:
-- probably ought to split the data expressions in the pre-processing. That's a regex split operation, better to do it only once than at every exec/repeat.
 - ability to pull in another template...maybe this is best handled the way jgregorio proposes with custom elements?
 - binding: 
-  - changeable html elements (input, select, textarea) bind back to js object
+  - doing this with event binding...easiest way I think? ~~changeable html elements (input, select, textarea) bind back to js object-d  d~~
   - maybe bind from js object to DOM...maybe using a helper function like React does?
 - mustache areas:
   - handle functions in data object?
