@@ -102,13 +102,13 @@ function Template(el) {
 		var o = data;
 		for(var i=0;i<apath.length;i++){
 			var p = apath[i];
-			if(i==apath.length-3 && isElement(o) && typeof opts.v=='function') {
+			if(i===apath.length-3 && isElement(o) && typeof opts.v==='function') {
 				var ename = apath[apath.length-2];
 				o.attributes.removeNamedItem(ename);
 				delete o[ename]
 				return o.addEventListener(ename.substr(2), opts.v.bind(o, opts.k));
-			} else if(i==apath.length-1 && typeof o[p]==='string' && opts.k!==''){
-				if(typeof opts.v=='function') throw new Error("eval function - "
+			} else if(i===apath.length-1 && typeof o[p]==='string' && opts.k!==''){
+				if(typeof opts.v==='function') throw new Error("eval function - "
 					+"should this be an event handler? " +p+' - '+apath.join('.'));
 				else o[p] = o[p].replace(opts.k, opts.v);
 			}
