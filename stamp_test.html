@@ -5,8 +5,10 @@
 <head>
 	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
 	<title>Attributes example</title>
-	<script type="text/javascript" src='stamp.js'></script>
 	<script type="text/javascript" src='stamp2.js'></script>
+	<style>
+		template { display:none }
+	</style>
 </head>
 
 <body>
@@ -32,33 +34,35 @@
 	<input id='bigtime' value='asdf' onkeyup='jones.bind(this)(event)'/>
 	<div id='target'></div>
 <script>
+	'use strict';
 	var btinp = document.querySelector('#bigtime');
-	console.dir(btinp);
+	//console.dir(btinp);
 	//btinp.onkeyup = jones;
 	function jones(d,e){
 		d.j.name=this.value;
+		console.log(d.j);
 	}
 	function rstring(len) {
-		let a = "a".charCodeAt(0);
-		let rv = '';
-		for(let i=0;i<len;i++){
+		var a = "a".charCodeAt(0);
+		var rv = '';
+		for(var i=0;i<len;i++){
 			rv+= String.fromCharCode(a + Math.random()*26);
 		}
 		return rv;
 	}
-	let data = {name:'big list', jones:jones,
+	var data = {name:'big list', jones:jones,
 		b:{selse:'and then something else',
 			c:[10,20,{d:1,e:4}]
 		}
 	}
-	let lst = data.lst = [];
-	for(let i=0;i<10;i++){
+	var lst = data.lst = [];
+	for(var i=0;i<10;i++){
 		lst.push({name:rstring(30), descr:rstring(80), idx:i+1});
 	}
 	data.q=[];
-	for(let i=0;i<10;i++){
+	for(var i=0;i<10;i++){
 		data.q[i]={a:i,r:[]};
-		for(let j=0;j<5;j++){
+		for(var j=0;j<5;j++){
 			data.q[i].r[j] = {name:rstring(10), key:j};
 		}
 	}
@@ -72,10 +76,10 @@
 	// */
 	//*
 	console.time('stamp2-pre');
-	let b = document.getElementById('one');
-	let out = document.getElementById('target');
+	var b = document.getElementById('one');
+	var out = document.getElementById('target');
 
-	let t = new Template(b);
+	var t = new Template(b);
 	console.timeEnd('stamp2-pre');
 	//console.log(JSON.stringify(t,null,3));
 	console.time('stamp2');

@@ -1,0 +1,21 @@
+{
+  "name": "transpile",
+  "version": "1.0.0",
+  "main": "0ws.js",  
+  "dependencies": {},
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.6.1"
+  },
+  "scripts": {
+    "start": "node 0ws.js",
+    "build": "babel stamp2.js -o stamp2_ie.js --presets env"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/indyblue/template.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "homepage": "https://github.com/indyblue/template#readme"
+}
