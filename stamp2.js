@@ -1,13 +1,16 @@
 'use strict';
-function Template(el) {
+function Template(el, refs) {
 	if(!isElement(el)
 		&& !isDocumentFragment(el)) return null;
 	if(el.content) el = el.content;
 	var rv = this;
+	rv.references = refs||{};
 	rv.element = el.cloneNode(true);
 	rv.patterns = [];
 	rv.repeats = [];
+	rv.subtemplates = [];
 	var rxMus = /{{\s*([^ \t}]+)\s*}}/ig;
+	var sTemplate = 'data-template';
 	var rxRep = /^data-repeat-([^-]+)-?.*$/;
 	var rxSplit = /[.\[\]]+/g;
 
@@ -55,7 +58,7 @@ function Template(el) {
 	/*****************************************************************/
 	// initialize pattern/repeat arrays
 	/*****************************************************************/
-	(function findElementPatterns(e, aPat, aRep, path) {
+	(function findElementPatterns(e, aPat, aRep, aSubt, path) {
 		if(path===undefined) path=[];
 		var np=null;
 		//console.log(e.tagName||e.nodeName);
@@ -63,30 +66,38 @@ function Template(el) {
 			aPat.push(np);
 		//if(e.nodeName==='#text') console.log('nodeValue', e.nodeValue);
 
-		var tmpPath=path, tmpPat=aPat, tmpRep=aRep;
+		var tmpPath=path, tmpPat=aPat, tmpRep=aRep, tmpSubt = aSubt;
 		if(e.attributes) for(var i=0;i<e.attributes.length;i++){
 			var a = e.attributes[i];
 			//console.log('attr', a.name, a.value);
 			if((np=newPat(pcon(path,a.name),a.value))!==null)
 				aPat.push(np);
-			if((np=rxRep.exec(a.name))!==null) {
-				tmpPat=[]; tmpRep=[]; tmpPath=[];
+			if(a.name===sTemplate) {
+				if(!(rv.references[a.value] instanceof Template))
+					throw new Error('Template ['+a.value+'] undefined.');
+				else aSubt.push({
+					name:a.value,
+					element:path,
+					template:rv.references[a.value]
+				});
+			} else if((np=rxRep.exec(a.name))!==null) {
+				tmpPat=[]; tmpRep=[]; tmpSubt=[]; tmpPath=[];
 				aRep.push({
 					pattern: path.concat('attributes', a.name, 'value'),
 					value: a.value,
 					base: np[1],
 					element: path,
 					patterns: tmpPat,
-					repeats: tmpRep
-					//template: new Template(e, false)
+					repeats: tmpRep,
+					subtemplates: tmpSubt
 				});
 			}
 		}
 		for(var i=0;i<e.childNodes.length;i++) {
 			var c = e.childNodes[i];
-			findElementPatterns(c, tmpPat, tmpRep, tmpPath.concat('childNodes',i));
+			findElementPatterns(c, tmpPat, tmpRep, tmpSubt, tmpPath.concat('childNodes',i));
 		}
-	})(rv.element, rv.patterns, rv.repeats);
+	})(rv.element, rv.patterns, rv.repeats, rv.subtemplates);
 
 	/*****************************************************************/
 	// worker methods
@@ -120,6 +131,9 @@ function Template(el) {
 	rv.empty = function(el) {
 		while(el.firstChild) el.removeChild(el.firstChild);
 	};
+	rv.remove = function(el) {
+		el.parentNode.removeChild(el);
+	};
 	rv.exec = function(data, tmp, el) {
 		if(tmp===undefined) tmp = rv;
 		if(el===undefined) el = tmp.element;
@@ -127,9 +141,7 @@ function Template(el) {
 		//console.log(tmp);
 		for(var i=0;i<tmp.patterns.length;i++){
 			var pat = tmp.patterns[i];
-			var keys = Object.keys(pat.replace);
-			for(var j=0;j<keys.length;j++){
-				var k = keys[j];
+			for(var k in pat.replace){
 				var v = rv.eval(pat.replace[k], data);
 				//console.log(k, v);
 				if(typeof v==='function') k = data;
@@ -152,6 +164,13 @@ function Template(el) {
 			//console.log(reps.map(x=> x.childNodes));
 			rv.append(rel, reps, true);
 		}
+		for(var i=0;i<tmp.subtemplates.length;i++){
+			var sub = tmp.subtemplates[i];
+			var placeholder = rv.eval(sub.element, newe);
+			var content = sub.template.exec(data);
+			rv.before(placeholder, content);
+			rv.remove(placeholder);
+		}
 		return newe;
 	};
 	rv.append = function(pe, els, children){
@@ -163,6 +182,17 @@ function Template(el) {
 				pe.appendChild(e.firstChild);
 			} else pe.appendChild(e);
 		}
-	}
+	};
+	rv.before = function(olde, newe, children) {
+		if(children===undefined) children=false;
+		if(!Array.isArray(newe)) newe = [newe];
+		var pe = olde.parentNode;
+		for(var i=0;i<newe.length;i++){
+			var e = newe[i];
+			if(children || e.tagName==='TEMPLATE') while(e.firstChild) {
+				pe.insertBefore(e.firstChild, olde);
+			} else pe.insertBefore(e, olde);
+		}
+	};
 }
 
