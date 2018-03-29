@@ -9,9 +9,10 @@ const requestHandler = (request, response) => {
 	if(fstat.isFile(fpath)) {
 		fs.createReadStream(fpath).pipe(response);
 	} else if(fstat.isDirectory()) {
-		response.write(`<h3>Directory listing of '${url}'</h3>`);
+		response.write(`<html><head></head><body><h3>Directory listing of '${url}'</h3>`);
 		for(let i of fs.readdirSync(fpath)) response.write(
 			`<div><a href='${$join(url, i)}'>${i}</a></div>`);
+		response.write(`</body></html>`);
 		response.end();
 	} else response.end('404 not found!');
 }
