@@ -10,10 +10,58 @@
 		template {
 			display: none
 		}
+		h3 { margin:0;}
+		.card {
+			display:inline-block;
+			min-width:20em;
+			margin:.5em;
+			border:.5em inset blue;
+			background:lightblue;
+			border-radius: 1em;
+			padding:.5em;
+		}
+		.section {
+			padding: 3px 0;
+			margin: 3px 0;
+			border: 1px solid blue;
+		}
 	</style>
 </head>
 
 <body>
+	<template id='persons'><div data-repeat-i=''>
+		<div data-prefix='i' data-template='#person'></div>
+	</div></template>
+
+	<template id='person'><div class='card'>
+		<h3>{{last}}, {{first}}</h3>
+		<div><i>Birthday:</i> {{birthday}}</div>
+		<div class='section'>Contacts:
+			<div data-repeat-i='contacts'><div data-prefix='i' data-template='#contact'></div></div>
+		</div>
+		<div class='section'>Addresses:
+			<div data-repeat-i='addrs'><div data-prefix='i' data-template='#addr'></div></div>
+		</div>
+	</div></template>
+
+	<template id='contact'><b>{{type}}</b> {{value}} <i>{{notes}}</i></template>
+	<template id='addr'><b>{{type}}</b> {{addr1}}, {{city}}, {{state}}, {{zip}}</template>
+
+	<script>
+			'use strict';
+			var striker = new Striker();
+			var data = [{last:'jones', first:'fred', birthday:'Jan 2', 
+							contacts:[{type:'email', value:'fred@jones.com', notes:'home'}, {type:'phone', value:'317-555-1212'}],
+							addrs:[{type:'home', addr1:'123 Sesame St', city:'Timbuktu', state:'OK', zip:'12345'},
+								{type:'work', addr1:'456 Noplace St', city:'Timbuktu', state:'OK', zip:'12354'}]},
+						{last:'smith', first:'sally', birthday:'Feb 3', 
+							contacts:[{type:'email', value:'sally@smith.com', notes:'work'}, {type:'phone', value:'312-555-1313'}],
+							addrs:[{type:'home', addr1:'124 Sesame St', city:'Heartland', state:'IN', zip:'12345'},
+								{type:'work', addr1:'454 Noplace St', city:'Chicago', state:'IL', zip:'12354'}]}];
+			striker.expend(document.body, '#persons', data, true);
+	</script>
+	
+
 	<template id='one'>
 		<h3 class='a b c d' data-style='' data-f='' data-q='r'>List {{ name }} {{ b.selse }}</h3>
 		<i data-template='#three'></i>

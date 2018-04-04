@@ -1,40 +1,42 @@
 'use strict';
 function Striker() {
-    var t = this, sTemplate = 'data-template', rxSplit = /[.\[\]]+/g,
-        rxPat = /{{\s*([^ \t}]+)\s*}}/ig, rxRep = /^data-repeat-([^-]+)-?.*$/;
+    var t = this, sTemplate = 'data-template', sPrefix = 'data-prefix',
+        rxSplit = /[.\[\]]+/g, rxPat = /{{\s*([^ \t}]+)\s*}}/ig,
+        rxRep = /^data-repeat-([^-]+)-?.*$/;
 
-    t.exec = function (e, data, removeParent) {
+    t.exec = function (e, data, removeParent, prefixes) {
         if ((e = elCheck(e)) === undefined) return;
         var e2 = e.cloneNode(true);
-        traverse(e2, data);
+        traverse(e2, data, prefixes);
         if (removeParent) return e2.childNodes;
         else return e2;
     };
     t.append = function (eParent, eChildren) {
         if (!eChildren.length) eChildren = [eChildren];
-        while (eChildren.length>0) eParent.appendChild(eChildren[0]);
+        while (eChildren.length > 0) eParent.appendChild(eChildren[0]);
     };
-    t.expend = function(eParent, e, data, removeParent){
-        var e2 = t.exec(e, data, removeParent);
+    t.expend = function (eParent, e, data, removeParent, prefixes) {
+        var e2 = t.exec(e, data, removeParent, prefixes);
         t.append(eParent, e2);
     };
 
-    function traverse(e, data) {
+    function traverse(e, data, prefixes) {
         var tmpName = null, pat = null, rarray = null, rname, rdata, tmpName;
         if ((e = elCheck(e)) === undefined) return;
         if (e.nodeName === '#text') {
-            var cb = cbPat.bind(e.parentNode, data, '>');
+            var cb = cbPat.bind(e.parentNode, data, '>', prefixes);
             e.nodeValue = e.nodeValue.replace(rxPat, cb);
         }
 
         if (e.attributes) for (var i = 0; i < e.attributes.length; i++) {
             var a = e.attributes[i];
-            if (a.name === sTemplate) tmpName = a.value;
+            if (a.name === sPrefix) prefixes = a.value.split(/,/g);
+            else if (a.name === sTemplate) tmpName = a.value;
             else if ((pat = rxRep.exec(a.name)) !== null) {
                 rname = pat[1];
-                rarray = cbPat(data, '>', '', a.value);
+                rarray = cbPat(data, '>', prefixes, '', a.value);
             } else {
-                var cb = cbPat.bind(e, data, a.name);
+                var cb = cbPat.bind(e, data, a.name, prefixes);
                 a.value = a.value.replace(rxPat, cb);
             }
         }
@@ -42,25 +44,29 @@ function Striker() {
         if (rarray && rarray.length) {
             if (tmpName === null) {
                 tmpName = e.cloneNode(true);
-                while(tmpName.attributes.length>0) 
+                while (tmpName.attributes.length > 0)
                     tmpName.removeAttribute(tmpName.attributes[0].name);
             }
             e.innerHTML = '';
             for (var i = 0; i < rarray.length; i++) {
                 (rdata = { '^': data })[rname] = rarray[i];
-                t.expend(e, tmpName, rdata, true);
+                t.expend(e, tmpName, rdata, true, prefixes);
             }
         } else {
-            if (tmpName !== null) t.expend(e, tmpName, data, true);
+            if (tmpName !== null) t.expend(e, tmpName, data, true, prefixes);
             else for (var i = 0; i < e.childNodes.length; i++)
-                traverse(e.childNodes[i], data);
+                traverse(e.childNodes[i], data, prefixes);
         }
     }
-    function cbPat(data, name, all, path) {
+    function cbPat(data, name, pfx, all, path) {
         if (typeof path === 'string') path = path.split(rxSplit);
+        var pfx = (typeof pfx === 'string' ? pfx.split(/,/g) : pfx);
         var e = this, o = data;
         for (var i = 0; i < path.length; i++) {
             var p = path[i];
+            if (p === '') break;
+            if (i === 0 && o[p] === undefined) for (var j = 0; j < pfx.length; j++)
+                if (o[pfx[j]][p] !== undefined) { o = o[pfx[j]]; break; }
             if (o[p] !== undefined) o = o[p];
             else {
                 console.warn('path "' + path.join('.') + '" not found in data');
@@ -70,7 +76,7 @@ function Striker() {
         if (name !== '>' && typeof o === 'function' && isElement(e)) {
             e.attributes.removeNamedItem(name);
             delete e[name];
-            e.addEventListener(name.replace(/^on-?/i,''), o.bind(e, data));
+            e.addEventListener(name.replace(/^on-?/i, ''), o.bind(e, data));
             o = '';
         }
         return o;
