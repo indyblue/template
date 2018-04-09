@@ -60,10 +60,32 @@
 								{type:'work', addr1:'454 Noplace St', city:'Chicago', state:'IL', zip:'12354'}]}];
 			striker.expend(document.body, '#persons', data, true);
 	</script>
+
+<ul id='ws-log'></ul>
+<script>
+	var wslog = document.querySelector('#ws-log');
+	var ws = new WebSocket('ws://localhost:8080/$socket');
+	var wonevent = function(e) {
+		console.log(e.data,e);
+		var li = document.createElement('li');
+		li.innerHTML = e.type + " - " + e.data;
+		eslog.append(li);
+	};
+	ws.onmessage = wonevent;
+	ws.onopen = function(e){
+		console.log(e);
+		//ws.send('asdf');
+	};
+	ws.onerror = function(e){
+		console.log(e);
+	}
+</script>
+
+	<!--
 	<ul id='es-log'></ul>
 	<script>
 		var eslog = document.querySelector('#es-log');
-		var es = new EventSource('/$es');
+		var es = new EventSource('/$event');
 		var onevent = function(e) {
 			console.log(e.data,e);
 			var li = document.createElement('li');
@@ -163,6 +185,7 @@
 		}, 100))).catch(x=> console.error(x));
 
 	</script>
+-->
 </body>
 
 </html>
