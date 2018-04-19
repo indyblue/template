@@ -7,6 +7,17 @@ const requestHandler = (request, response) => {
 	fpath = $path.join(__dirname, url);
 	fstat = $stat(fpath);
 	console.log(new Date(), url, fstat.isFile() ? 'f' : fstat.isDirectory() ? 'd' : '-')
+	/*
+	if(/\.js$/i.test(url) && request.headers['cache-control']!=='no-cache') {
+		response.statusCode = 304;
+		response.end('304 Not Modified');
+		//console.log('add headers', request.getHeader('cache-control'));
+		return;
+		//response.setHeader('cache-control', 'max-age=315360000, public'); 
+		//response.setHeader('expires', 'Thu, 31 Dec 2037 23:55:55 GMT'); 
+		//response.setHeader('etag', '"5a637bd4-1538f"'); 
+	}
+	*/
 	if (fstat.isFile()) fs.createReadStream(fpath).pipe(response);
 	else if (fstat.isDirectory()) handleDir(response);
 	else if (url === '/$event') handleES(request, response);

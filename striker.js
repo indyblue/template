@@ -16,6 +16,7 @@ function Striker() {
         while (eChildren.length > 0) eParent.appendChild(eChildren[0]);
     };
     t.expend = function (eParent, e, data, removeParent, prefixes) {
+        if ((eParent = elCheck(eParent)) === undefined) return;
         var e2 = t.exec(e, data, removeParent, prefixes);
         t.append(eParent, e2);
     };
