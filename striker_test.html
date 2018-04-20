@@ -30,8 +30,11 @@
 			margin: 3px 0;
 			border: 1px solid blue;
 		}
-
-		table, tr, td {
+		
+		.table {display:table;}
+		.tr{display:table-row;}
+		.td{display:table-cell;}
+		.table, .tr, .td {
 			border:1px solid black;
 			border-collapse: collapse;
 			padding:.25em;
@@ -41,11 +44,14 @@
 
 <body>
 	<template id='spreadsheet'>
-		<table data-repeat-r=''>
-			<tr data-repeat-c="r">
-				<td>{{c}}</td>
-			</tr>
-		</table>
+		<div class='table' data-repeat-r=''>
+			<div class='tr'>
+			<div data-repeat-c-remove="r">
+				<div class='td'>{{c}}</div>
+			</div>
+			<div class='td'>[X]</div>
+			</div>
+		</div>
 	</template>
 	<textarea id="tsv-paste"></textarea>
 	<button id="tsv-run">TSV Parse</button>
