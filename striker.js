@@ -19,7 +19,7 @@ function Striker() {
         var eParent;
         if (!eChildren.length) eChildren = [eChildren];
         if ((eRef = elCheck(eRef)) === undefined) return;
-        if ((eParent = elCheck(eRef.parentElement)) === undefined) return;
+        if ((eParent = elCheck(eRef.parentNode)) === undefined) return;
         while (eChildren.length > 0) eParent.insertBefore(eChildren[0], eRef);
     };
     t.expend = function (eParent, e, data, removeParent, prefixes) {
