@@ -116,3 +116,5 @@ function Striker() {
     function isText(obj) { return obj instanceof Text; }
     function isDocFrag(obj) { return obj instanceof DocumentFragment; }
 }
+
+if(module && module.exports) module.exports = Striker;

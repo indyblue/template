@@ -1,12 +1,9 @@
 {
-  "name": "transpile",
+  "name": "template.das",
   "version": "1.0.0",
-  "main": "0ws.js",  
+  "main": "striker.js",
   "dependencies": {},
-  "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-preset-env": "^1.6.1"
-  },
+  "devDependencies": {},
   "scripts": {
     "start": "node 0ws.js",
     "build": "babel stamp2.js -o stamp2_ie.js --presets env"
@@ -16,6 +13,5 @@
     "url": "git+https://github.com/indyblue/template.git"
   },
   "author": "",
-  "license": "MIT",
-  "homepage": "https://github.com/indyblue/template#readme"
+  "license": "MIT"
 }
