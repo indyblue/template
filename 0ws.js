@@ -1,27 +1,46 @@
-const [http, port] = [require('http'), 8080];
+const http = require('http');
 const [fs, $path, $url] = [require('fs'), require('path'), require('url')];
 const crypto = require('crypto');
 
+const t = {
+	server: null,
+	dirname: __dirname,
+	port: 8080,
+	start: null,
+	cbRequest: null
+};
+
 const requestHandler = (request, response) => {
+	let dirname = t.dirname;
 	let url = request.url;
-	fpath = $path.join(__dirname, url);
+	fpath = $path.join(dirname, url);
 	fstat = $stat(fpath);
-	console.log(new Date(), url, fstat.isFile() ? 'f' : fstat.isDirectory() ? 'd' : '-')
-	/*
-	if(/\.js$/i.test(url) && request.headers['cache-control']!=='no-cache') {
-		response.statusCode = 304;
-		response.end('304 Not Modified');
-		//console.log('add headers', request.getHeader('cache-control'));
-		return;
-		//response.setHeader('cache-control', 'max-age=315360000, public'); 
-		//response.setHeader('expires', 'Thu, 31 Dec 2037 23:55:55 GMT'); 
-		//response.setHeader('etag', '"5a637bd4-1538f"'); 
-	}
-	*/
-	if (fstat.isFile()) fs.createReadStream(fpath).pipe(response);
-	else if (fstat.isDirectory()) handleDir(response);
-	else if (url === '/$event') handleES(request, response);
-	else response.end('404 not found!');
+	let reqData = '';
+	request.on('data', (chunk) => {
+		reqData += chunk.toString();
+	});
+	request.on('end', () => {
+		console.log(new Date(), url, fstat.isFile() ? 'f' : fstat.isDirectory() ? 'd' : '-')
+		if (typeof t.cbRequest === 'function') {
+			var success = t.cbRequest(request, response, reqData, fpath, fstat);
+			if (success) return;
+		}
+		/*
+		if(/\.js$/i.test(url) && request.headers['cache-control']!=='no-cache') {
+			response.statusCode = 304;
+			response.end('304 Not Modified');
+			//console.log('add headers', request.getHeader('cache-control'));
+			return;
+			//response.setHeader('cache-control', 'max-age=315360000, public'); 
+			//response.setHeader('expires', 'Thu, 31 Dec 2037 23:55:55 GMT'); 
+			//response.setHeader('etag', '"5a637bd4-1538f"'); 
+		}
+		*/
+		if (fstat.isFile()) fs.createReadStream(fpath).pipe(response);
+		else if (fstat.isDirectory()) handleDir(response);
+		else if (url === '/$event') handleES(request, response);
+		else response.end('404 not found!');
+	});
 }
 
 function handleWS(request, socket, buf) {
@@ -50,7 +69,7 @@ function handleWS(request, socket, buf) {
 		}
 		if (mask) { bmask = buf.slice(i, i + 4); i += 4; }
 		data = buf.slice(i, i + len);
-		if (mask) for (var j = 0; j < data.length; j++) 
+		if (mask) for (var j = 0; j < data.length; j++)
 			data[j] = data[j] ^ bmask[j % 4];
 		if (opcode === 1) data = data.toString('utf8');
 		// todo: handle fragmentation
@@ -93,15 +112,27 @@ function handleDir(response) {
 	response.end();
 }
 
-const server = http.createServer(requestHandler);
+const server = t.server = http.createServer(requestHandler);
 server.on('upgrade', function (req, socket, buf) {
 	handleWS(req, socket, buf);
 	console.log(arguments);
 });
-server.listen(port, (err) => {
-	if (err) return console.log('something bad happened', err);
-	console.log(`server is listening on ${port}, ${__dirname}`);
-});
+t.start = function () {
+	return new Promise((resolve, reject) => {
+		server.listen(t.port, (err) => {
+			if (err) {
+				reject(err);
+				return console.log('something bad happened', err);
+			}
+			resolve([t.port, t.dirname, 'whats my name']);
+			console.log(`server is listening on ${t.port}, ${t.dirname}`);
+		});
+	});
+}
+
+if (module.parent == null) t.start();
+else module.exports = t;
+
 
 function $stat(fn) {
 	if (fs.existsSync(fn)) return fs.lstatSync(fpath);
