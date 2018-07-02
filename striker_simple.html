@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
+	<title>Attributes example</title>
+	<script type="text/javascript" src='striker.js'></script>
+</head>
+
+<body>
+	<template id='persons'>
+		<div>{{ last }}, {{first}}</div>
+		<div data-repeat-i='q.nums' data-template='#formula'>
+		</div>
+		<div data-prefix='d' data-repeat-d='ph'>
+			<div>number: +1-{{p}}-{{n}} ({{^.last}}) <input value='{{n}}'/></div>
+		</div>
+	</template>
+
+	<template id='formula'>
+		<div>{{i}} {{^.first}} ({{^.q.nums.3}} to the {{i}}th power: {+{ return Math.pow(dp('^.q.nums.3'),data.i); }+})</div>
+	</template>
+
+	<script>
+		'use strict';
+		var striker = new Striker();
+		var data = {
+			last: 'jones', first: 'sam',
+			q: { nums: [1, 2, 3, 4, 5, 6] },
+			ph: [
+				{ p: '317', n: '123-4567' },
+				{ p: '317', n: '123-4568' },
+				{ p: '317', n: '123-4569' },
+				{ p: '317', n: '123-4560' },
+				{ p: '317', n: '123-4561' },
+				{ p: '317', n: '123-4562' },
+				{ p: '317', n: '123-4563' }
+			]
+		};
+		striker.expend(document.body, '#persons', data, true);
+	</script>
+
+</body>
+
+</html>
