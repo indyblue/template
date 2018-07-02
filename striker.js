@@ -1,7 +1,6 @@
 'use strict';
 function Striker() {
-  var t = this, modules = Striker.modules || [],
-    sPrefix = 'data-prefix';
+  var t = this, modules = Striker.modules || [];
 
   t.exec = function (e, data, removeParent, state) {
     if ((e = elCheck(e)) === undefined) return;
