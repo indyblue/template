@@ -11,14 +11,20 @@ function Striker() {
   };
   t.append = function (eParent, eChildren) {
     if (!eChildren.length) eChildren = [eChildren];
-    while (eChildren.length > 0) eParent.appendChild(eChildren[0]);
+    while (eChildren.length > 0) {
+      eParent.appendChild(eChildren[0]);
+      if (eChildren instanceof Array) eChildren.shift();
+    }
   };
   t.before = function (eRef, eChildren) {
     var eParent;
     if (!eChildren.length) eChildren = [eChildren];
     if ((eRef = elCheck(eRef)) === undefined) return;
     if ((eParent = elCheck(eRef.parentNode)) === undefined) return;
-    while (eChildren.length > 0) eParent.insertBefore(eChildren[0], eRef);
+    while (eChildren.length > 0) {
+      eParent.insertBefore(eChildren[0], eRef);
+      if (eChildren instanceof Array) eChildren.shift();
+    }
   };
   t.expend = function (eParent, e, data, removeParent, state) {
     if ((eParent = elCheck(eParent)) === undefined) return;
@@ -41,6 +47,8 @@ function Striker() {
       moduleEval('k', a, 'name', e, data, state, a.value);
       moduleEval('v', a, 'value', e, data, state, a.name);
     }
+
+    moduleEval('e', e, 'nodeName', e, data, state, '<>');
 
     var hadChildCb = moduleCbRun(state, '_cbChildren', [e, data, state]);
     if (!hadChildCb) { // default child functionality, if not overridden
@@ -74,8 +82,8 @@ function Striker() {
           .replace(m.rx, m.cbReplace.bind(t, e, data, state, name));
         if (isfn(m.cbMatch)) robj[rkey]
           .replace(m.rx, m.cbMatch.bind(t, e, data, state, name));
-        moduleCbFetch(m, 'cbCleanup', robj[rkey], state);
         moduleCbFetch(m, 'cbChildren', robj[rkey], state);
+        moduleCbFetch(m, 'cbCleanup', robj[rkey], state);
       }
     }
   }
@@ -83,7 +91,7 @@ function Striker() {
   function moduleCbFetch(m, name, testval, state) {
     if (isfn(m[name]) && m.rx.test(testval)) {
       if (!(state['_' + name] instanceof Array)) state['_' + name] = [];
-      state['_' + name].push(m[name]);
+      if (state['_' + name].indexOf(m[name]) < 0) state['_' + name].push(m[name]);
     }
   }
 
@@ -176,6 +184,14 @@ Striker.dataPath = function (o, path, pfx) {
       this.expend(e, state._tmpName, data, true, state);
     }
   };
+  var modPaginate = {
+    rx: /^data-page$/,
+    apply: 'k',
+    cbMatch: function (e, data, state, name, all) {
+      var pageSize = parseInt(name);
+      if (pageSize > 0) state._pageSize = pageSize;
+    }
+  };
   var modPrefix = {
     rx: /^data-prefix$/,
     apply: 'k',
@@ -201,6 +217,8 @@ Striker.dataPath = function (o, path, pfx) {
       }
     },
     cbChildren: function (e, data, state) {
+      var pageSize = state._pageSize || -1;
+      var that = this;
       var tmpName = state._tmpName, rarray = state._rarray,
         rname = state._rname, rremove = state._rremove, rdata;
       if (tmpName == null) {
@@ -209,13 +227,37 @@ Striker.dataPath = function (o, path, pfx) {
           tmpName.removeAttribute(tmpName.attributes[0].name);
       }
       e.innerHTML = '';
-      for (var i = 0; i < rarray.length; i++) {
-        (rdata = { '^': data })[rname] = rarray[i];
-        this.expend(e, tmpName, rdata, true, state);
+      var fnLoopy = function (el, start, end) {
+        for (var i = start; i < end; i++) {
+          if (i >= rarray.length) break;
+          (rdata = { '^': data })[rname] = rarray[i];
+          that.expend(el, tmpName, rdata, true, state);
+        }
       }
+      if (pageSize < 0) pageSize = rarray.length;
+      fnLoopy(e, 0, pageSize);
+      var pageNext = pageSize;
+
+      if (pageSize < rarray.length) { // start page code
+        var atag = document.createElement('a');
+        atag.textContent = 'Show more...'
+        atag.style.display = 'block';
+        that.append(e, atag);
+        atag.onclick = function (e) {
+          e.preventDefault();
+          var ediv = document.createElement('div');
+          fnLoopy(ediv, pageNext, pageNext + pageSize);
+          that.before(atag, ediv);
+          pageNext += pageSize;
+          if(pageNext>=rarray.length) atag.remove();
+          return false;
+        };
+        atag.href='#'
+      } // end page code
+
       if (rremove) {
         var newE = e.lastChild;
-        this.before(e, e.childNodes);
+        that.before(e, e.childNodes);
         e.remove();
         e = newE;
       }
@@ -225,6 +267,7 @@ Striker.dataPath = function (o, path, pfx) {
     modPath,
     modFormula,
     modTemplate,
+    modPaginate,
     modPrefix,
     modRepeat
   ];
