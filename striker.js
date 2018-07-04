@@ -6,11 +6,14 @@ function Striker() {
     if ((e = elCheck(e)) === undefined) return;
     var e2 = e.cloneNode(true);
     t.traverse(e2, data, state);
-    if (removeParent) return e2.childNodes;
+    if (removeParent) {
+      if (e2.childNodes.length == 1) return e2.firstChild;
+      return e2.childNodes;
+    }
     else return e2;
   };
   t.append = function (eParent, eChildren) {
-    if (!eChildren.length) eChildren = [eChildren];
+    if (!eChildren.length || isText(eChildren)) eChildren = [eChildren];
     while (eChildren.length > 0) {
       eParent.appendChild(eChildren[0]);
       if (eChildren instanceof Array) eChildren.shift();
@@ -39,7 +42,7 @@ function Striker() {
     for (var k in refstate) if (k[0] !== '_') state[k] = refstate[k];
     if ((e = elCheck(e)) === undefined) return;
 
-    if (e.nodeName === '#text')
+    if (isText(e))
       moduleEval('t', e, 'nodeValue', e.parentNode, data, state, '>');
 
     if (e.attributes) for (var i = 0; i < e.attributes.length; i++) {
@@ -96,16 +99,34 @@ function Striker() {
   }
 
   function elCheck(el) {
+    if (!el) return undefined;
     if (typeof el === 'string') el = document.querySelector(el);
     if (!isElement(el) && !isDocFrag(el) && !isText(el)) return undefined;
     if (el.content) el = el.content;
+    
+    if (isDocFrag(el)){
+      var srcEl = elSingleRealChild(el);
+      if(srcEl) return srcEl;
+    }
     return el;
   };
+  function elSingleRealChild(el) {
+    var firstRealChild = null;
+    var ce = el.firstChild;
+    while (ce != null) {
+      if (isText(ce) && /^\s+$/.test(ce.nodeValue)) { }
+      else if (!firstRealChild) firstRealChild = ce;
+      else return null;
+      ce = ce.nextSibling;
+    }
+    return firstRealChild;
+  }
   function isElement(obj) { return obj instanceof Element; }
   function isText(obj) { return obj instanceof Text; }
   function isDocFrag(obj) { return obj instanceof DocumentFragment; }
   function isfn(val) { return typeof val === 'function'; }
   t.isElement = isElement;
+  t.elCheck = elCheck;
 }
 
 Striker.pathSplit = function (spath) {
@@ -185,13 +206,43 @@ Striker.dataPath = function (o, path, pfx) {
     }
   };
   var modPaginate = {
-    rx: /^data-page$/,
+    rx: /^data-page-(\d+)$/,
     apply: 'k',
-    cbMatch: function (e, data, state, name, all) {
-      var pageSize = parseInt(name);
-      if (pageSize > 0) state._pageSize = pageSize;
+    cbMatch: function (e, data, state, name, all, size) {
+      var that = this;
+      var pageSize = parseInt(size);
+      if (pageSize > 0) state._cbPaginate =
+        function (fnLoopy, el, rarray) {
+          fnLoopy(el, 0, pageSize);
+          var pageNext = pageSize;
+
+          var ttag = that.elCheck(name);
+          if (!ttag) {
+            ttag = document.createElement('a');
+            ttag.textContent = 'Show more... (Showing: {{cur}} of {{ttl}})';
+            ttag.href = '#'
+            ttag.style.display = 'block';
+          }
+          var atag = that.exec(ttag, { cur: pageNext, ttl: rarray.length });
+          that.append(el, atag);
+          atag.onclick = function (event) {
+            event.preventDefault();
+            var ediv = document.createElement('div');
+            fnLoopy(ediv, pageNext, pageNext + pageSize);
+            that.before(atag, ediv);
+            pageNext += pageSize;
+            if (pageNext >= rarray.length) atag.remove();
+            else {
+              var tagContents = that.exec(ttag, { cur: pageNext, ttl: rarray.length }, true);
+              atag.innerHTML = '';
+              that.append(atag, tagContents);
+            }
+            return false;
+          };
+        }
     }
   };
+
   var modPrefix = {
     rx: /^data-prefix$/,
     apply: 'k',
@@ -217,7 +268,6 @@ Striker.dataPath = function (o, path, pfx) {
       }
     },
     cbChildren: function (e, data, state) {
-      var pageSize = state._pageSize || -1;
       var that = this;
       var tmpName = state._tmpName, rarray = state._rarray,
         rname = state._rname, rremove = state._rremove, rdata;
@@ -234,26 +284,10 @@ Striker.dataPath = function (o, path, pfx) {
           that.expend(el, tmpName, rdata, true, state);
         }
       }
-      if (pageSize < 0) pageSize = rarray.length;
-      fnLoopy(e, 0, pageSize);
-      var pageNext = pageSize;
 
-      if (pageSize < rarray.length) { // start page code
-        var atag = document.createElement('a');
-        atag.textContent = 'Show more...'
-        atag.style.display = 'block';
-        that.append(e, atag);
-        atag.onclick = function (e) {
-          e.preventDefault();
-          var ediv = document.createElement('div');
-          fnLoopy(ediv, pageNext, pageNext + pageSize);
-          that.before(atag, ediv);
-          pageNext += pageSize;
-          if(pageNext>=rarray.length) atag.remove();
-          return false;
-        };
-        atag.href='#'
-      } // end page code
+      if (typeof state._cbPaginate === 'function')
+        state._cbPaginate(fnLoopy, e, rarray);
+      else fnLoopy(e, 0, rarray.length);
 
       if (rremove) {
         var newE = e.lastChild;
@@ -263,13 +297,44 @@ Striker.dataPath = function (o, path, pfx) {
       }
     }
   };
+
+  var modStats = {
+    rx: /^./,
+    apply: 'e',
+    cbMatch: function (e, data, state) {
+      var interval = 100;
+      if (!('stats' in state)) {
+        state._statFirst = true;
+        state.stats = {};
+      }
+      var s = state.stats;
+      if (!('t0' in s)) s.t0 = Date.now();
+      if (!('count' in s)) s.count = 0;
+      if (!('tick' in s)) s.tick = interval;
+
+      s.tC = Date.now();
+      s.count++;
+      if (s.tC - s.t0 > s.tick) {
+        state._statFirst = true;
+        s.tick = s.tC - s.t0 + interval;
+      }
+    },
+    cbCleanup: function (state) {
+      if (state._statFirst) {
+        var s = state.stats;
+        console.log('stats', 'time', s.tC - s.t0, 'count', s.count);
+      }
+    }
+  };
+
   Striker.modules = [
     modPath,
     modFormula,
     modTemplate,
     modPaginate,
     modPrefix,
-    modRepeat
+    modRepeat,
+    modStats
   ];
 })();
 
