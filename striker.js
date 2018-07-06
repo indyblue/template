@@ -85,6 +85,8 @@ function Striker() {
           .replace(m.rx, m.cbReplace.bind(t, e, data, state, name));
         if (isfn(m.cbMatch)) robj[rkey]
           .replace(m.rx, m.cbMatch.bind(t, e, data, state, name));
+        if (isfn(m.cbEval) && m.rx.test(robj[rkey]))
+          m.cbEval.apply(t, [robj, rkey, e, data, state, name]);
         moduleCbFetch(m, 'cbChildren', robj[rkey], state);
         moduleCbFetch(m, 'cbCleanup', robj[rkey], state);
       }
@@ -103,10 +105,10 @@ function Striker() {
     if (typeof el === 'string') el = document.querySelector(el);
     if (!isElement(el) && !isDocFrag(el) && !isText(el)) return undefined;
     if (el.content) el = el.content;
-    
-    if (isDocFrag(el)){
+
+    if (isDocFrag(el)) {
       var srcEl = elSingleRealChild(el);
-      if(srcEl) return srcEl;
+      if (srcEl) return srcEl;
     }
     return el;
   };
@@ -148,7 +150,8 @@ Striker.dataPath = function (o, path, pfx) {
   for (var i = 0; i < path.length; i++) {
     var p = path[i];
     if (p === '') break;
-    if (o[p] !== undefined) o = o[p];
+    var op = o[p];
+    if (op !== undefined) o = op;
     else {
       console.warn('path "' + path.join('.') + '" not found in data');
       return '';
@@ -327,14 +330,32 @@ Striker.dataPath = function (o, path, pfx) {
     }
   };
 
+  var modProxy = {
+    rx: /^./,
+    apply: 'vt',
+    cbEval: function (robj, rkey, e, data, state, name) {
+      var dp = data;
+      while (dp && !dp.__isProxy) dp = dp['^'];
+      if (!dp) return;
+      var origVal = robj[rkey];
+      dp.__proxyGetCallback = function (fullPath, target, key, value) {
+        console.log(name, origVal, fullPath, value);
+      };
+      dp.__proxySetCallback = function (fullPath, target, key, value) {
+        //console.log('SET', name, origVal, fullPath); 
+      };
+    }
+  };
+
   Striker.modules = [
+    modProxy,
     modPath,
     modFormula,
     modTemplate,
     modPaginate,
     modPrefix,
     modRepeat,
-    modStats
+    //modStats
   ];
 })();
 

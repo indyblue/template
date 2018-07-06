@@ -6,6 +6,7 @@
 	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
 	<title>Attributes example</title>
 	<script type="text/javascript" src='striker.js'></script>
+	<script type="text/javascript" src='deep-proxy.js'></script>
 </head>
 
 <body>
@@ -35,7 +36,7 @@
 			<ul class='a b c d' data-style='' data-f='' data-q='r' data-repeat-j-a='i.r'>
 				<li class='a b c d' data-style='' data-f='' data-q='r'>
 					{{ ^.^.q.length }}|{{ ^.i.r.length }}|{{ ^.i.a }}|
-					<input on-change='{{^.^.jones}}' name='funk' value='{{ j.name }}' data-key='{{j.key}}' />
+					<input  name='funk' value='{{ j.name }}' data-key='{{j.key}}' />
 				</li>
 			</ul>
 		</li>
@@ -50,10 +51,11 @@
 		var btinp = document.querySelector('#bigtime');
 		//console.dir(btinp);
 		//btinp.onkeyup = jones;
-		function jones(d, e) {
-			d.j.name = this.value;
-			console.log(d.j);
-		}
+		//on-change='{{^.^.jones}}'
+		// function jones(d, e) {
+		// 	d.j.name = this.value;
+		// 	console.log(d.j);
+		// }
 		function rstring(len) {
 			var a = "a".charCodeAt(0);
 			var rv = '';
@@ -63,7 +65,7 @@
 			return rv;
 		}
 		var data = {
-			name: 'big list', jones: jones,
+			name: 'big list', //jones: jones,
 			b: {
 				selse: 'and then something else',
 				c: [10, 20, { d: 1, e: 4 }]
@@ -81,12 +83,14 @@
 				data.q[i].r[j] = { name: rstring(10), key: j };
 			}
 		}
+		var pdata = deepProxy(data);
 
 		var striker = new Striker();
-		striker.expend(document.body, '#one', data, true);
-		striker.expend(document.body, '#one2', data, true);
-		striker.expend(document.body, '#one3', data, true);
+		striker.expend(document.body, '#one', pdata, true);
+		striker.expend(document.body, '#one2', pdata, true);
+		striker.expend(document.body, '#one3', pdata, true);
 
+		console.log(proxyGets);
 	</script>
 
 </body>
