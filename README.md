@@ -17,6 +17,14 @@ modules:
   * repeat: repeating sections, associated with an array
     * can also remove parent tag with this one
 
+# data binding
+* normal binding is done by the auto "value" onchange event which is added, to update the model with the latest values from the html
+* "reverse" binding is done via js Proxy, through deepProxy module. 
+  * uses the "get" trap to populate "track" data (whatever got that data during traverse
+  * then uses "set" trap to recalculate all "tracks" with new value
+
 Seems very responsive for all reasonable numbers of elements (can load up to a thousand nested tags in well under 100 ms). for larger numbers, pagination would be the way to go anyway.
 
 - loosely based on the concept of stamp by J Gregorio https://github.com/jcgregorio/stamp
+- deepProxy is also loosely based on a code snippet I saw on [stackoverflow](https://stackoverflow.com/questions/49079437/deep-proxy-of-deep-nested-object-in-javascript#49079437) (however question apparently no longer exists);
+  

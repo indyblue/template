@@ -86,12 +86,13 @@ function Striker() {
         if (isfn(m.cbMatch)) robj[rkey]
           .replace(m.rx, m.cbMatch.bind(t, e, data, state, name));
         if (isfn(m.cbEval) && m.rx.test(robj[rkey]))
-          m.cbEval.apply(t, [robj, rkey, e, data, state, name]);
+          m.cbEval.apply(t, [type, robj, rkey, e, data, state, name]);
         moduleCbFetch(m, 'cbChildren', robj[rkey], state);
         moduleCbFetch(m, 'cbCleanup', robj[rkey], state);
       }
     }
   }
+  t.moduleEval = moduleEval;
 
   function moduleCbFetch(m, name, testval, state) {
     if (isfn(m[name]) && m.rx.test(testval)) {
@@ -330,25 +331,7 @@ Striker.dataPath = function (o, path, pfx) {
     }
   };
 
-  var modProxy = {
-    rx: /^./,
-    apply: 'vt',
-    cbEval: function (robj, rkey, e, data, state, name) {
-      var dp = data;
-      while (dp && !dp.__isProxy) dp = dp['^'];
-      if (!dp) return;
-      var origVal = robj[rkey];
-      dp.__proxyGetCallback = function (fullPath, target, key, value) {
-        console.log(name, origVal, fullPath, value);
-      };
-      dp.__proxySetCallback = function (fullPath, target, key, value) {
-        //console.log('SET', name, origVal, fullPath); 
-      };
-    }
-  };
-
   Striker.modules = [
-    modProxy,
     modPath,
     modFormula,
     modTemplate,
