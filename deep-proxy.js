@@ -1,12 +1,12 @@
 'use strict';
+var deepProxy;
 
-var deepProxy
-(function () {
-	// if there is no
+(function () { //closure to keep vars out of global
 	if (typeof Proxy !== 'function') {
 		deepProxy = function (d) { return d; };
-		return;
+		return; // if browser doesn't support Proxy, do nothing
 	}
+	//tracking variables
 	var _getCb = null, _setCb = null,
 		_track = {},
 		_fnTrackAdd = function (key, obj) {
@@ -19,14 +19,14 @@ var deepProxy
 				}
 			}
 			if (eobj === false) _track[key].push(obj);
-		}
+		};
+
+	//main recursive Proxy implementation
 	deepProxy = function (obj, path) {
 		path = path || ['!'];
 		var handler = {
 			get: function (target, key) {
 				if (key === '__isProxy') return true;
-				// if (key === '__hasCBs') return isFn(_getCb) && isFn(_setCb);
-				// if (key === '__fnTrackAdd') return _fnTrackAdd;
 				if (key === '__getTrack') return _track;
 				var fullPath = path.join('.') + '.' + key;
 				var tk = target[key], ttk = typeof tk;
@@ -36,7 +36,6 @@ var deepProxy
 					return tk;
 				} else if (tk !== undefined) {
 					if (isFn(_getCb)) _getCb(fullPath, target, key, tk);
-					//console.log(path.join('.') + '.' + key, '=', tk);
 					return tk;
 				}
 			},
@@ -44,20 +43,16 @@ var deepProxy
 				if (key === '__proxyGetCallback' && isFn(value)) _getCb = value;
 				if (key === '__proxySetCallback' && isFn(value)) _setCb = value;
 				var fullPath = path.join('.') + '.' + key;
-				//console.log(path.join('.') + '.' + key, ':', target[key], '->', value);
 				target[key] = value;
 				if (isFn(_setCb)) _setCb(fullPath, target, key, value);
 				return true;
 			}
-			// ,deleteProperty: function (target, key) {
-			// 	console.log(path.join('.') + '.' + key, '[X]');
-			// 	return delete target[key];
-			// }
 		};
 		return new Proxy(obj, handler);
 	}
 	function isFn(a) { return typeof a === 'function'; }
 
+	// Striker module
 	var modProxy = {
 		rx: /^./,
 		apply: 'vt',
@@ -66,18 +61,11 @@ var deepProxy
 			var origVal = robj[rkey];
 			_getCb = function (fullPath, target, key, value) {
 				_fnTrackAdd(fullPath, {
-					moduleEval: that.moduleEval,
-					type: type,
-					robj: robj,
-					rkey: rkey,
-					e: e,
-					data: data,
-					state: state,
-					name: name,
-					origVal: origVal
+					moduleEval: that.moduleEval, type: type, robj: robj, rkey: rkey,
+					e: e, data: data, state: state, name: name, origVal: origVal
 				});
-				//console.log(name, origVal, fullPath, value);
 			};
+
 			//only needs to be set once, doesn't rely on any changing params in cbEval
 			if (!isFn(_setCb)) _setCb = function (fullPath, target, key, value) {
 				var objs = _track[fullPath];
@@ -97,6 +85,7 @@ var deepProxy
 		}
 	};
 
+	// if Striker exists, unshift. This module should be ahead of all others.
 	if (typeof Striker === 'function' && Striker.modules instanceof Array)
 		Striker.modules.unshift(modProxy);
 })();
