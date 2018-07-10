@@ -6,7 +6,7 @@
 	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
 	<title>Attributes example</title>
 	<script type="text/javascript" src='striker.js'></script>
-	<script type="text/javascript" src='deep-proxy.js'></script>
+	<script type="text/javascript" src='striker-proxy.js'></script>
 </head>
 
 <body>
@@ -14,7 +14,11 @@
 		<a href='#' style='display:block;'>Show more... (Showing: {{cur}} of {{ttl}})</a>
 	</template>
 	<template id='one'>
-		<div>need a <i>test</i> <b>to see</b> if pure <u>white</u> <u>space</u> removal is bad.</div>
+		<div>need a
+			<i>test</i>
+			<b>to see</b> if {{^s.pure}}
+			<u>white</u>
+			<u>space</u> removal is bad. {{^^.franky}}</div>
 		<h3 class='a b c d' data-style='' data-f='' data-q='r'>List {{ name }} {{ b.selse }}</h3>
 		<i data-template='#three'></i>
 	</template>
@@ -27,16 +31,16 @@
 	</template>
 	<template id='one3'>
 		<div class='a b c d' data-style='' data-f='' data-q='r'>nested lists</div>
-		<ul class='a b c d' data-style='' data-f='' data-q='r' data-page-5='' data-repeat-i-a='q'>
+		<ul class='a b c d' data-style='' data-f='' data-q='r' data-page-5 data-repeat-i-a='q'>
 			<i data-template='#two'></i>
 		</ul>
 	</template>
 	<template id='two'>
 		<li class='a b c d' data-style='' data-f='' data-q='r'>Number {{ i.a }}
-			<ul class='a b c d' data-style='' data-f='' data-q='r' data-repeat-j-a='i.r'>
+			<ul class='a b c d' data-style='' data-f='' data-q='r' data-page-0 data-repeat-j-a='i.r'>
 				<li class='a b c d' data-style='' data-f='' data-q='r'>
 					{{ ^.^.q.length }}|{{ ^.i.r.length }}|{{ ^.i.a }}|
-					<input  name='funk' value='{{ j.name }}' data-key='{{j.key}}' />
+					<input name='funk' value='{{ j.name }}' value-bind data-key='{{j.key}}' />
 				</li>
 			</ul>
 		</li>
@@ -72,7 +76,7 @@
 			}
 		}
 		var lst = data.lst = [];
-		var imax = 80, jmax = 10;
+		var imax = 100, jmax = 10;
 		for (var i = 0; i < imax; i++) {
 			lst.push({ name: rstring(30), descr: rstring(80), idx: i + 1 });
 		}
@@ -84,13 +88,13 @@
 			}
 		}
 		var pdata = deepProxy(data);
+		window.franky = 'did you think this would work';
 
 		var striker = new Striker();
-		striker.expend(document.body, '#one', pdata, true);
+		striker.expend(document.body, '#one', pdata, true, { pure: 'silly putty' });
 		striker.expend(document.body, '#one2', pdata, true);
 		striker.expend(document.body, '#one3', pdata, true);
 
-		console.log(proxyGets);
 	</script>
 
 </body>

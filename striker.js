@@ -1,6 +1,7 @@
 'use strict';
 function Striker() {
   var t = this, modules = Striker.modules || [];
+  modules.sort(function (a, b) { return a.rank - b.rank; });
 
   t.exec = function (e, data, removeParent, state) {
     if ((e = elCheck(e)) === undefined) return;
@@ -128,8 +129,14 @@ function Striker() {
   function isText(obj) { return obj instanceof Text; }
   function isDocFrag(obj) { return obj instanceof DocumentFragment; }
   function isfn(val) { return typeof val === 'function'; }
+  t.elHasAttribute = function (obj, name) {
+    if (!isElement(obj)) return false;
+    if (typeof obj.hasAttribute !== 'function') return false;
+    return obj.hasAttribute(name);
+  }
   t.isElement = isElement;
   t.elCheck = elCheck;
+  t.isfn = isfn;
 }
 
 Striker.pathSplit = function (spath) {
@@ -138,17 +145,20 @@ Striker.pathSplit = function (spath) {
   else if (typeof spath === 'string') return spath.split(rxSplit)
   else return [];
 };
-Striker.dataPath = function (o, path, pfx) {
+Striker.dataPath = function (o, state, path) {
   path = Striker.pathSplit(path);
-  pfx = pfx instanceof Array ? pfx : [];
+  var pfx = state && state.pfx instanceof Array ? state.pfx : [];
+  var i0 = 0;
   if (path.length && !(path[0] in o)) {
-    for (var j = 0; j < pfx.length; j++)
+    if (path[0] === '^^') { o = window; i0 = 1; }
+    if (path[0] === '^s') { o = state; i0 = 1; }
+    else for (var j = 0; j < pfx.length; j++)
       if (path[0] in o[pfx[j]]) {
         path.unshift(pfx[j]);
         break;
       }
   }
-  for (var i = 0; i < path.length; i++) {
+  for (var i = i0; i < path.length; i++) {
     var p = path[i];
     if (p === '') break;
     var op = o[p];
@@ -162,36 +172,40 @@ Striker.dataPath = function (o, path, pfx) {
 };
 
 (function () {
+  var cbAutoChange = function (data, path) {
+    var o = data, p = path.slice();
+    while (p.length > 1) o = o[p.shift()];
+    o[p[0]] = this.value;
+    console.log(data, path, this);
+  };
   var modPath = {
+    rank: 20,
     rx: /{{\s*(.+?)\s*}}/ig,
     apply: 'tv',
     cbReplace: function (e, data, state, name, all, spath) {
       var path = Striker.pathSplit(spath);
       var pfx = state.pfx;
-      var o = Striker.dataPath(data, path, pfx);
+      var o = Striker.dataPath(data, state, path);
       if (name !== '>' && typeof o === 'function' && this.isElement(e)) {
         e.attributes.removeNamedItem(name);
         delete e[name];
         e.addEventListener(name.replace(/^on-?/i, ''), o.bind(e, data, path));
         o = '';
       }
-      if (name === 'value' && this.isElement(e)) {
-        e.addEventListener('change', (function (data, path) {
-          var o = data, p = path.slice();
-          while (p.length > 1) o = o[p.shift()];
-          o[p[0]] = this.value;
-          console.log(data, path, this);
-        }).bind(e, data, path));
+      if (name === 'value' && !e.valueBindApplied && this.elHasAttribute(e, 'value-bind')) {
+        e.valueBindApplied = true;
+        e.addEventListener('change', cbAutoChange.bind(e, data, path));
       }
       return o;
     }
   }
   var modFormula = {
+    rank: 30,
     rx: /{\+{\s*((?:\n|.)+?)\s*}\+}/ig,
     apply: 'tv',
     cbReplace: function (e, data, state, name, all, fnbody) {
       var fn = (new Function('data, dp, event', fnbody))
-        .bind(e, data, Striker.dataPath.bind(null, data));
+        .bind(e, data, Striker.dataPath.bind(null, data, state));
       if (/^on-?/i.test(name)) {
         e.addEventListener(name.replace(/^on-?/i, ''), fn);
         return '';
@@ -199,6 +213,7 @@ Striker.dataPath = function (o, path, pfx) {
     }
   }
   var modTemplate = {
+    rank: 40,
     rx: /^data-template$/,
     apply: 'k',
     cbMatch: function (e, data, state, name, all) {
@@ -210,15 +225,16 @@ Striker.dataPath = function (o, path, pfx) {
     }
   };
   var modPaginate = {
+    rank: 50,
     rx: /^data-page-(\d+)$/,
     apply: 'k',
     cbMatch: function (e, data, state, name, all, size) {
       var that = this;
-      var pageSize = parseInt(size);
+      var pageSize = parseInt(size) || 999999;
       if (pageSize > 0) state._cbPaginate =
         function (fnLoopy, el, rarray) {
-          fnLoopy(el, 0, pageSize);
-          var pageNext = pageSize;
+          var pageNext = fnLoopy(el, 0, pageSize);
+          if (pageNext >= rarray.length) return;
 
           var ttag = that.elCheck(name);
           if (!ttag) {
@@ -230,11 +246,11 @@ Striker.dataPath = function (o, path, pfx) {
           var atag = that.exec(ttag, { cur: pageNext, ttl: rarray.length });
           that.append(el, atag);
           atag.onclick = function (event) {
+            if (state.stats) state.stats._reset = true;
             event.preventDefault();
             var ediv = document.createElement('div');
-            fnLoopy(ediv, pageNext, pageNext + pageSize);
+            pageNext = fnLoopy(ediv, pageNext, pageNext + pageSize);
             that.before(atag, ediv);
-            pageNext += pageSize;
             if (pageNext >= rarray.length) atag.remove();
             else {
               var tagContents = that.exec(ttag, { cur: pageNext, ttl: rarray.length }, true);
@@ -248,6 +264,7 @@ Striker.dataPath = function (o, path, pfx) {
   };
 
   var modPrefix = {
+    rank: 60,
     rx: /^data-prefix$/,
     apply: 'k',
     cbMatch: function (e, data, state, name, all) {
@@ -259,11 +276,12 @@ Striker.dataPath = function (o, path, pfx) {
     }
   };
   var modRepeat = {
+    rank: 70,
     rx: /^data-repeat-([^-]+)-?(.*)$/,
     apply: 'k',
     cbMatch: function (e, data, state, name, all, rname, rremove) {
       var path = Striker.pathSplit(name);
-      var arr = Striker.dataPath(data, path, state.pfx);
+      var arr = Striker.dataPath(data, state, path);
       if (arr && arr.length) {
         state._rarray = arr;
         state._rname = rname;
@@ -281,16 +299,21 @@ Striker.dataPath = function (o, path, pfx) {
           tmpName.removeAttribute(tmpName.attributes[0].name);
       }
       e.innerHTML = '';
+      var isPaginate = typeof state._cbPaginate === 'function';
       var fnLoopy = function (el, start, end) {
         for (var i = start; i < end; i++) {
           if (i >= rarray.length) break;
           (rdata = { '^': data })[rname] = rarray[i];
           that.expend(el, tmpName, rdata, true, state);
+          if (isPaginate && that.isfn(state.statAlert) && state.statAlert()) {
+            i++;
+            break;
+          }
         }
+        return i;
       }
 
-      if (typeof state._cbPaginate === 'function')
-        state._cbPaginate(fnLoopy, e, rarray);
+      if (isPaginate) state._cbPaginate(fnLoopy, e, rarray);
       else fnLoopy(e, 0, rarray.length);
 
       if (rremove) {
@@ -303,6 +326,7 @@ Striker.dataPath = function (o, path, pfx) {
   };
 
   var modStats = {
+    rank: 80,
     rx: /^./,
     apply: 'e',
     cbMatch: function (e, data, state) {
@@ -310,18 +334,20 @@ Striker.dataPath = function (o, path, pfx) {
       if (!('stats' in state)) {
         state._statFirst = true;
         state.stats = {};
+        state.statAlert = function () {
+          return s.tC - s.t0 > s.tick;
+        };
       }
       var s = state.stats;
-      if (!('t0' in s)) s.t0 = Date.now();
+      if (!('t0' in s) || s._reset) {
+        s.t0 = Date.now();
+        delete s._reset;
+      }
       if (!('count' in s)) s.count = 0;
       if (!('tick' in s)) s.tick = interval;
 
       s.tC = Date.now();
       s.count++;
-      if (s.tC - s.t0 > s.tick) {
-        state._statFirst = true;
-        s.tick = s.tC - s.t0 + interval;
-      }
     },
     cbCleanup: function (state) {
       if (state._statFirst) {
@@ -338,7 +364,7 @@ Striker.dataPath = function (o, path, pfx) {
     modPaginate,
     modPrefix,
     modRepeat,
-    //modStats
+    modStats
   ];
 })();
 

@@ -54,6 +54,7 @@ var deepProxy;
 
 	// Striker module
 	var modProxy = {
+		rank: 10,
 		rx: /^./,
 		apply: 'vt',
 		cbEval: function (type, robj, rkey, e, data, state, name) {
