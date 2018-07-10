@@ -1,3 +1,4 @@
+// npx uglifyjs striker.js striker-proxy.js -c -m -o striker.all.min.js
 'use strict';
 function Striker() {
   var t = this, modules = Striker.modules || [];
