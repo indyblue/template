@@ -7,41 +7,45 @@ const t = {
 	dirname: __dirname,
 	port: 8080,
 	start: null,
-	cbRequest: null
+	cbRequest: null,
+	handlers: []
+};
+function urlFilter(fitler, url) {
+	const ftype = typeof filter;
+	if (ftype === 'string') return url.startsWith(filter.toLowerCase());
+	else if (ftype instanceof RegExp) return ftype.exec(url);
+	else return null;
+}
+function meetsFilter(filter, request) {
+	const url = request.url.toLowerCase(),
+		verb = request.method.toLowerCase(), vrx = new RegExp('\\b' + verb + '\\b', 'i'),
+		ftype = typeof filter;
+	let urlF = urlFilter(filter, url);
+	if (urlF !== null) return urlF;
+	else if (ftype === 'function') return ftype(request);
+	else if (typeof opt === 'object') {
+		if ('verb' in opt && !vrx.test(opt.verb)) return false;
+		if ('url' in opt && (urlF = urlFilter(opt.url, url)) !== null) return urlF;
+	}
+	else return true; // always applies by default
+};
+t.addHandler = (filter, cb) => {
 };
 
 const requestHandler = (request, response) => {
-	let dirname = t.dirname;
-	let url = request.url;
-	fpath = $path.join(dirname, url);
-	fstat = $stat(fpath);
+	let dirname = t.dirname, url = request.url;
+
+
+
 	let reqData = '';
 	request.on('data', (chunk) => {
 		reqData += chunk.toString();
 	});
 	request.on('end', () => {
-		console.log(new Date(), url, fstat.isFile() ? 'f' : fstat.isDirectory() ? 'd' : '-')
-		if (typeof t.cbRequest === 'function') {
-			var success = t.cbRequest(request, response, reqData, fpath, fstat);
-			if (success) return;
-		}
-		/*
-		if(/\.js$/i.test(url) && request.headers['cache-control']!=='no-cache') {
-			response.statusCode = 304;
-			response.end('304 Not Modified');
-			//console.log('add headers', request.getHeader('cache-control'));
-			return;
-			//response.setHeader('cache-control', 'max-age=315360000, public'); 
-			//response.setHeader('expires', 'Thu, 31 Dec 2037 23:55:55 GMT'); 
-			//response.setHeader('etag', '"5a637bd4-1538f"'); 
-		}
-		*/
-		if (fstat.isFile()) fs.createReadStream(fpath).pipe(response);
-		else if (fstat.isDirectory()) handleDir(url, response);
-		else if (url === '/$event') handleES(request, response);
-		else response.end('404 not found!');
 	});
 }
+
+
 
 function handleWS(request, socket, buf) {
 	var key = getHeader(request, 'Sec-WebSocket-Key');
