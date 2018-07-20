@@ -2,22 +2,68 @@ const http = require('http');
 const [fs, $path, $url] = [require('fs'), require('path'), require('url')];
 const crypto = require('crypto');
 
-const t = {
-	server: null,
-	dirname: __dirname,
+const t = {};
+
+const defs = {
+	path: process.cwd(),
 	port: 8080,
-	start: null,
-	cbRequest: null,
 	handlers: []
 };
-function urlFilter(fitler, url) {
-	const ftype = typeof filter;
-	if (ftype === 'string') return url.startsWith(filter.toLowerCase());
-	else if (ftype instanceof RegExp) return ftype.exec(url);
-	else return null;
+
+t.new = (opts) => {
+	const handlers = [];
+	const that = Object.assign({}, defs, opts);
+	that.server = http.createServer((rq, rs) => requestHandler(that, handlers, rq, rs));
+	that.start = () => new Promise((resolve, reject) => {
+		that.server.listen(that.port, (err) => {
+			if (err) {
+				console.log('something bad happened', err);
+				return reject(err);
+			}
+			console.log(`server is listening on ${that.port}, ${that.dirname}`);
+			resolve([that.port, that.path]);
+		});
+	});
+	that.addHandler = (filter, cb) => handlers.push({ filter, cb });
+	that.clearHandlers = () => handlers.splice(0, handlers.length);
+	return that;
 }
+
+if (module.parent == null) t.new().start();
+else module.exports = t;
+
+/******************************************************************************/
+const requestHandler = (that, handlers, request, response) => {
+	const dirname = request.dirname = that.path, url = request.url;
+	request.isClosed = false;
+	request.on('close', () => { request.isClosed = true });
+	let pr = Promise.resolve();
+	for (let h of handlers) {
+		let urlMatch = meetsFilter(h.filter, request);
+		if (urlMatch && typeof h.cb === 'function') {
+			request.urlMatch = urlMatch;
+			pr = pr.then(() => new Promise((resolve, reject) => {
+				console.log(url, h.filter);
+				h.cb(request, response, resolve, reject);
+			}));
+		};
+	}
+	pr.then((...a) => {
+		res404(request, response);
+	}, (...a) => {
+		res404(request, response);
+		console.log('error', ...a)
+	});
+	let reqData = '';
+	request.on('data', (chunk) => {
+		reqData += chunk.toString();
+	});
+	request.on('end', () => {
+	});
+}
+
 function meetsFilter(filter, request) {
-	const url = request.url.toLowerCase(),
+	const url = request.url,
 		verb = request.method.toLowerCase(), vrx = new RegExp('\\b' + verb + '\\b', 'i'),
 		ftype = typeof filter;
 	let urlF = urlFilter(filter, url);
@@ -29,23 +75,54 @@ function meetsFilter(filter, request) {
 	}
 	else return true; // always applies by default
 };
-t.addHandler = (filter, cb) => {
+function urlFilter(filter, url) {
+	const ftype = typeof filter, urllc = url.toLowerCase(),
+		url2 = url.replace(/^\//, ''), url2lc = urllc.replace(/^\//, '');
+	if (ftype === 'string') return urllc.startsWith(filter.toLowerCase()) || url2lc.startsWith(filter.toLowerCase());
+	else if (filter instanceof RegExp) return filter.exec(url) || filter.exec(url2) || false;
+	else return null;
+}
+/******************************************************************************/
+
+function res404(req, res) {
+	if (!res.finished) {
+		if (!res.headersSent) res.statusCode = 404;
+		res.end('resource not found');
+	}
+}
+/******************************************************************************/
+
+t.files = (req, res, next) => {
+	let dirname = req.dirname;
+	let url = req.url;
+	fpath = $path.join(dirname, url);
+	fstat = $stat(fpath);
+
+	if (fstat.isFile()) fs.createReadStream(fpath).pipe(res);
+	else if (fstat.isDirectory()) handleDir(url, res);
+	else next();
 };
-
-const requestHandler = (request, response) => {
-	let dirname = t.dirname, url = request.url;
-
-
-
-	let reqData = '';
-	request.on('data', (chunk) => {
-		reqData += chunk.toString();
-	});
-	request.on('end', () => {
-	});
+function handleDir(url, res) {
+	res.write(`<html><head></head><body><h3>Directory listing of '${url}'</h3>`);
+	for (let i of fs.readdirSync(fpath)) res.write(
+		`<div><a href='${$join(url, i)}'>${i}</a></div>`);
+	res.write(`</body></html>`);
+	res.end();
 }
 
+function $stat(fn) {
+	if (fs.existsSync(fn)) return fs.lstatSync(fpath);
+	else return {
+		isFile() { return false; },
+		isDirectory() { return false; }
+	};
+};
+function $join(a, b) { return $path.posix.normalize($path.posix.join(a, b)); }
 
+/******************************************************************************/
+t.webSocket = app => {
+	app.server.on('upgrade', handleWS);
+};
 
 function handleWS(request, socket, buf) {
 	var key = getHeader(request, 'Sec-WebSocket-Key');
@@ -108,41 +185,3 @@ function fmtEsMsg(event, data) {
 	return output;
 }
 
-function handleDir(url, response) {
-	response.write(`<html><head></head><body><h3>Directory listing of '${url}'</h3>`);
-	for (let i of fs.readdirSync(fpath)) response.write(
-		`<div><a href='${$join(url, i)}'>${i}</a></div>`);
-	response.write(`</body></html>`);
-	response.end();
-}
-
-const server = t.server = http.createServer(requestHandler);
-server.on('upgrade', function (req, socket, buf) {
-	handleWS(req, socket, buf);
-	console.log(arguments);
-});
-t.start = function () {
-	return new Promise((resolve, reject) => {
-		server.listen(t.port, (err) => {
-			if (err) {
-				reject(err);
-				return console.log('something bad happened', err);
-			}
-			resolve([t.port, t.dirname, 'whats my name']);
-			console.log(`server is listening on ${t.port}, ${t.dirname}`);
-		});
-	});
-}
-
-if (module.parent == null) t.start();
-else module.exports = t;
-
-
-function $stat(fn) {
-	if (fs.existsSync(fn)) return fs.lstatSync(fpath);
-	else return {
-		isFile() { return false; },
-		isDirectory() { return false; }
-	};
-};
-function $join(a, b) { return $path.posix.normalize($path.posix.join(a, b)); }
