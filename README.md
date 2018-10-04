@@ -28,3 +28,7 @@ Seems very responsive for all reasonable numbers of elements (can load up to a t
 - loosely based on the concept of stamp by J Gregorio https://github.com/jcgregorio/stamp
 - deepProxy is also loosely based on a code snippet I saw on [stackoverflow](https://stackoverflow.com/questions/49079437/deep-proxy-of-deep-nested-object-in-javascript#49079437) (however question apparently no longer exists);
   
+to minify/uglify:
+```
+npx uglifyjs striker.js striker-proxy.js -c -m -o striker.all.min.js
+```

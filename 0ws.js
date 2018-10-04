@@ -24,13 +24,16 @@ t.new = (opts) => {
 			resolve([that.port, that.path]);
 		});
 	});
-	that.addHandler = (filter, cb) => handlers.push({ filter, cb });
-	that.clearHandlers = () => handlers.splice(0, handlers.length);
+	that.addHandler = (filter, cb) => {
+		handlers.push({ filter, cb });
+		return that;
+	}
+	that.clearHandlers = () => {
+		handlers.splice(0, handlers.length);
+		return that;
+	}
 	return that;
 }
-
-if (module.parent == null) t.new().start();
-else module.exports = t;
 
 /******************************************************************************/
 const requestHandler = (that, handlers, request, response) => {
@@ -66,6 +69,7 @@ function meetsFilter(filter, request) {
 	const url = request.url,
 		verb = request.method.toLowerCase(), vrx = new RegExp('\\b' + verb + '\\b', 'i'),
 		ftype = typeof filter;
+	if (ftype === 'boolean') return filter;
 	let urlF = urlFilter(filter, url);
 	if (urlF !== null) return urlF;
 	else if (ftype === 'function') return ftype(request);
@@ -184,4 +188,7 @@ function fmtEsMsg(event, data) {
 		+ 'data: ' + JSON.stringify(data) + '\n\n';
 	return output;
 }
+
+if (module.parent == null) t.new().addHandler(true, t.files).start();
+else module.exports = t;
 

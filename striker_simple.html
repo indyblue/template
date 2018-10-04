@@ -5,26 +5,26 @@
 <head>
 	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
 	<title>Attributes example</title>
-	<script type="text/javascript" src='striker.js'></script>
+	<script type="text/javascript" src='templar.js'></script>
 </head>
 
 <body>
 	<template id='persons'>
-		<div>{{ last }}, {{first}}</div>
-		<div data-repeat-i='q.nums' data-template='#formula'>
+		<!-- test comment -->
+		<div>{{ model.last }}, {{model.first}}</div>
+		<div data-repeat-n='model.q.nums' data-template='#formula'> </div>
+		<div data-repeat-d='model.ph'>
+			<div>number: +1-{{d.p}}-{{d.n}} ({{model.last}}) <input value='{{d.n}}' /></div>
 		</div>
-		<div data-prefix='d' data-repeat-d='ph'>
-			<div>number: +1-{{p}}-{{n}} ({{^.last}}) <input value='{{n}}'/></div>
-		</div>
+		<!-- test comment2 -->
 	</template>
 
 	<template id='formula'>
-		<div>{{i}} {{^.first}} ({{^.q.nums.3}} to the {{i}}th power: {+{ return Math.pow(dp('^.q.nums.3'),data.i); }+})</div>
+		<div data-model-n>{{n}} {{model.first}} ({{model.q.nums.3}} to the {{n}}th power)</div>
 	</template>
 
 	<script>
 		'use strict';
-		var striker = new Striker();
 		var data = {
 			last: 'jones', first: 'sam',
 			q: { nums: [1, 2, 3, 4, 5, 6] },
@@ -35,10 +35,15 @@
 				{ p: '317', n: '123-4560' },
 				{ p: '317', n: '123-4561' },
 				{ p: '317', n: '123-4562' },
-				{ p: '317', n: '123-4563' }
+				{ p: '317', n: '123-4563' },
 			]
 		};
-		striker.expend(document.body, '#persons', data, true);
+		var tmp = new Templar(document.body, '#persons', data);
+		tmp.debug = true;
+		tmp.exec();
+		/* test recalc:
+			data.last = 'smith'; data.first = 'ron'; tmp.recalc();
+		*/
 	</script>
 
 </body>
