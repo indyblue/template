@@ -1,60 +1,66 @@
+/*
+debug:
+  1: node
+  2: text
+  4: attr
+  8: eval
+  16: repeat
+*/
 'use strict';
 var Templar;
 (function () {
+  var _ = templarTools;
   /****************************************************************************/
   var cls = Templar = function (par, tmp, model, ctx) {
-    var ist = this, _par = elCheck(par), _temp = elCheck(tmp),
-      _ctx = oapply({ model: model }, ctx, true);
+    var ist = this, _par = _.elCheck(par), _temp = _.elCheck(tmp);
+    function CTX() { };
+    Object.defineProperty(CTX.prototype, "model", {
+      get: function () { return ist.model; }
+    });
+    ist.model = model;
+    var _ctx = _.oapply(new CTX(), ctx, true);
 
     ist.patterns = cls.defaultPatterns;
     ist.modules = cls.defaultModules;
-    ist.watchList = [];
-    ist.recalc = function () {
-      var cbs = [];
-      for (var i in ist.watchList) {
-        var watch = ist.watchList[i];
-        if (watch.val !== watch.check()) {
-          for (var j = 0; j < watch.refresh.length; j++) {
-            if (cbs.indexOf(watch.refresh[j]) < 0) cbs.push(watch.refresh[j]);
-          }
-        }
-      }
-      for (var i = 0; i < cbs.length; i++) cbs[i]();
-    };
+    if (domMon) {
+      ist._domMon = new domMon();
+      ist.recalc = function () { ist._domMon.recalc() };
+    }
+
     ist.exec = function () { return _exec(_temp, _ctx, _par); }
 
     function _exec(e, ctx, par) {
-      if (!(e = elCheck(e))) return;
+      if (!(e = _.elCheck(e))) return;
       var e2 = e.cloneNode(true);
       _traverse(e2, ctx);
-      if (ctx._removeParent) e2 = removeParent(e2);
-      if (par = elCheck(par)) append(e2, par);
+      if (ctx._removeParent) e2 = _.removeParent(e2);
+      if (par = _.elCheck(par)) _.append(e2, par);
       return e2;
     }
 
     function _traverse(e, refctx) {
-      if (ist.debug) console.log('node', nodePath(e));
-      if (isComment(e)) return e;
-      if ((e = elCheck(e)) === undefined) return;
-      var ctx = oapply({}, refctx);
+      if (refctx.debug & 1) console.log('node', _.nodePath(e));
+      if (_.isComment(e)) return e;
+      if ((e = _.elCheck(e)) === undefined) return;
+      var ctx = _.oapply(new CTX(), refctx);
 
-      if (isNwText(e)) e = isolateText(e); //might wrap text in span
-      if (isNwText(e)) {
-        if (ist.debug) console.log('text', e.nodeName, e.nodeValue);
-        var p = e.parentNode; //use parent: text nodes can split and stuff
-        _patternLoop(p, 'textContent', p, ctx, '>');
-        if (!p.firstChild) append(document.createTextNode(''), p);
-        e = p.firstChild; //child nodes will probably change
+      if (_.isNwText(e)) e = _.isolateText(e); //might wrap text in span
+      if (_.isNwText(e)) {
+        if (ctx.debug & 2) console.log('text', e.nodeName, e.nodeValue);
+        ctx._node = e.parentNode; //use parent: text nodes can split and stuff
+        _patternLoop(ctx._node, 'textContent', ctx, '>');
+        if (!ctx._node.firstChild) _.append(document.createTextNode(''), ctx._node);
+        e = ctx._node.firstChild; //child text nodes will probably change
       }
 
       if (e.attributes) for (var i = 0; i < e.attributes.length; i++) {
         var a = e.attributes[i];
-        if (ist.debug) console.log('attr', a.name, a.value);
-        _patternLoop(a, 'value', e, ctx, a.name);
+        if (ctx.debug & 4) console.log('attr', a.name, a.value);
+        _patternLoop(a, 'value', ctx, a.name);
         _moduleLoop(a.name, a.value, e, ctx);
       }
 
-      if (isfn(ctx._handleChildren)) ctx._handleChildren(e, ctx, _exec);
+      if (_.isfn(ctx._handleChildren)) ctx._handleChildren(e, ctx, _exec);
       else { // default child functionality, if not overridden
         if (ctx._elBody) {
           e.innerHTML = '';
@@ -67,17 +73,17 @@ var Templar;
         }
       }
 
-      rapply(refctx, ctx);
+      _.rapply(refctx, ctx);
       return e;
     }
 
-    function _patternLoop(robj, rkey, e, ctx, name) {
+    function _patternLoop(robj, rkey, ctx, name) {
       var origVal = robj[rkey], calc = function (recalc) {
-        if (!isfn(recalc)) robj[rkey] = origVal;
+        if (!_.isfn(recalc)) robj[rkey] = origVal;
         for (var i = 0; i < ist.patterns.length; i++) {
           var pat = ist.patterns[i];
           robj[rkey] = robj[rkey].replace(pat.rx,
-            pat.cb.bind(ist, e, ctx, name, recalc));
+            pat.cb.bind(ist, ctx, name, recalc));
         }
       };
       calc(calc);
@@ -86,58 +92,119 @@ var Templar;
       for (var i = 0; i < ist.modules.length; i++) {
         var mod = ist.modules[i],
           mkey = key.match(mod.rx);
-        if (mkey && isfn(mod.cb)) mod.cb(mkey, value, e, ctx);
+        if (mkey && _.isfn(mod.cb)) mod.cb(mkey, value, e, ctx);
       }
     }
   };
 
   var clsp = cls.prototype;
 
+  var domMon = function () {
+    var that = this;
+    that.watchList = {};
+    that.recalc = function () {
+      var cbs = [];
+      for (var key in that.watchList) {
+        var watch = that.watchList[key], newval = watch.check();
+        if (1 || watch.val !== newval) {
+          watch.val = newval;
+          for (var j = watch.refresh.length - 1; j >= 0; j--) {
+            var ref = watch.refresh[j];
+            if (!ref.ctx._node || !_.isAttached(ref.ctx._node))
+              watch.refresh.splice(j, 1);
+            else if (cbs.indexOf(ref.cb) < 0) cbs.push(ref.cb);
+          }
+        }
+        if (!watch.refresh.length) delete that.watchList[key];
+      }
+      for (var i = 0; i < cbs.length; i++) cbs[i]();
+    };
+    that.addPat = function (key, val, getval, recalc, ctx) {
+      if (key.indexOf('model') !== 0 || !_.isfn(recalc)) return;
+      if (!(key in that.watchList))
+        that.watchList[key] = { val: val, check: getval, refresh: [] };
+      that.watchList[key].refresh.push({ ctx: ctx, cb: recalc });
+    };
+  };
+
   /****************************************************************************/
   // pattern/module functions
   var curlyPat = {
     rx: /{{\s*(.+?)\s*}}/ig,
-    cb: function (e, ctx, name, recalc, all, spath) {
+    cb: function (ctx, name, recalc, all, spath) {
       var ist = this, path = curlyPat.expand(spath, ctx),
         getval = function () { return curlyPat.eval(path, ctx); },
         val = getval();
-      if (val !== null && path[0] === 'model' && isfn(recalc)) {
-        var key = curlyPat.join(path), watch = ist.watchList;
-        if (!(key in watch)) watch[key] = { val: val, check: getval, refresh: [] };
-        watch[key].refresh.push(recalc);
-      } else if (val === null) val = all;
+      if (val !== null && ist._domMon)
+        ist._domMon.addPat(curlyPat.join(path), val, getval, recalc, ctx);
+      else if (val === null) val = all;
       return val;
     },
 
     rxPat: /[.\[\]]+/g,
     split: function (path) {
-      if (isarr(path)) return path;
-      else if (isstr(path)) return path.split(curlyPat.rxPat);
+      if (_.isarr(path)) return path;
+      else if (_.isstr(path)) return path.split(curlyPat.rxPat);
       else return [];
     },
-    join: function (path) {
-      if (isarr(path)) return path.join('.');
-      else if (isstr(path)) return path;
+    join: function (path, lastStrong) {
+      if (_.isarr(path)) {
+        if (!lastStrong) return path.join('.');
+        var last = path.pop(), comp = curlyPat.getStrong(last);
+        if (!comp) path.push(last);
+        return [path.join('.'), comp];
+      } else if (_.isstr(path)) return path;
       else return '';
     },
     expand: function (spath, ctx, join) {
       var path = curlyPat.split(spath);
       var p0 = path.shift(), o0 = ctx[p0];
-      if (p0 !== 'model' && isstr(o0) && o0.indexOf('model') === 0)
+      if (p0 !== 'model' && _.isstr(o0) && o0.indexOf('model') === 0)
         path = curlyPat.split(o0).concat(path);
       else path.unshift(p0);
       if (join) return curlyPat.join(path);
       return path;
     },
     eval: function (path, ctx) {
-      if (isstr(path)) path = curlyPat.expand(path, ctx);
-      var o = ctx, p = path.slice();
-      while (p.length && p[0] in o) o = o[p.shift()] || '';
-      if (p.length) {
-        console.warn('path not found:', curlyPat.join(path), ', at:', p[0]);
-        o = null;
+      if (_.isstr(path)) path = curlyPat.expand(path, ctx);
+      var o = ctx, p = path.slice(), key, spath = curlyPat.join(path);
+      while (key = p.shift()) {
+        if (key in o) {
+          if (_.isarr(o) && _.isobj(o[key]))
+            console.warn('weak array, no key/value', key, '-', spath);
+          o = o[key];
+        } else o = curlyPat.strongIndex(o, key, spath);
+        if (typeof o === 'undefined') {
+          console.warn('path not found', key, ' - ', spath);
+          o = ''; break;
+        }
       }
+      if (ctx.debug & 8) console.log('eval', spath, o);
       return o;
+    },
+    makeIndex: function (arr, i, key) {
+    },
+    rxStrongKey: /(\w*)=(\w*)=?(\w*)/,
+    getStrong: function (key, type) {
+      var k2 = key.match(curlyPat.rxStrongKey);
+      if (!k2) return null;
+      if (type) return k2[type];
+      else return k2.slice(1, 4);
+    },
+    strongIndex: function (arr, compKey, spath) {
+      if (!_.isarr(arr)) return undefined;
+      var k2 = curlyPat.getStrong(compKey);
+      if (!k2) return undefined;
+      var idx = k2[0], key = k2[1], val = k2[2];
+      if (!idx && !val) return arr; // if no idx or val just return array
+      var o = arr[idx];
+      if (!key || !val || (o && key in o && o[key] == val)) return o;
+      if (_.isarr(arr)) for (var i = 0; i < arr.length; i++)
+        if (arr[i][key] == val) {
+          console.warn('array index [' + idx + '] wrong,'
+            + 'using [' + i + '] instead', key, val, spath);
+          return arr[i];
+        }
     }
   };
   var modelMod = {
@@ -154,158 +221,69 @@ var Templar;
   var tmplMod = {
     rx: /^data-template$/i,
     cb: function (mkey, value, e, ctx) {
-      var elBody = elCheck(value);
+      var elBody = _.elCheck(value);
       if (!elBody) console.warn('template', value, 'not found');
       else ctx._elBody = elBody;
     }
   };
+
   // evntMod - event handlers, incl binding for value/onchange
   //  - how to cooperate with curlyPat? ctx._onX vars? no braces?
-  // if (name !== '>' && isfn(o) && isElement(e)) {
+  // if (name !== '>' && _.isfn(o) && _.isElement(e)) {
   //   e.attributes.removeNamedItem(name);
   //   delete e[name];
   //   e.addEventListener(name.replace(/^on-?/i, ''), o.bind(e, data, path));
   //   o = '';
   // }
-  // if (name === 'value' && !e.valueBindApplied && elHasAttribute(e, 'value-bind')) {
+  // if (name === 'value' && !e.valueBindApplied && _.elHasAttribute(e, 'value-bind')) {
   //   e.valueBindApplied = true;
   //   e.addEventListener('change', cbAutoChange.bind(e, data, path));
   // }
 
-  // key - how to get/use key instead of array index for updates?
+  /*
+  recalc:
+    - create new entries
+    - delete entries
+    - reorder entries
+    - notes:
+      - key in watchList would either 
+        have to be pattern-matched 
+        or exclude index to account for order change
+    - method
+      - store ordered id list for array as val
+      - compare new id list with val, note diffs.
+  */
   var rptMod = {
     rx: /^data-repeat-([a-z]\w*)$/i,
     cb: function (mkey, value, e, ctx) {
       ctx.rpath = modelMod.cb(mkey, value, e, ctx);
-      if (!ctx._elBody) ctx._elBody = removeParent(e);
+      if (!ctx._elBody) ctx._elBody = _.removeParent(e);
       ctx._handleChildren = rptMod.cbChildren;
     },
     cbChildren: function (el, ctx, fnExec) {
       rptMod.cbChildLoop(el, ctx, fnExec);
     },
     cbChildLoop: function (el, ctx, fnExec, start, end) {
-      var rk = ctx.rpath, rv = curlyPat.expand(rk, ctx, 1),
-        len = curlyPat.eval(rv + '.length', ctx);
-      start = start || 0; end = end || len;
-      console.log('repeat', start, end);
+      var rk = ctx.rpath, rk2 = curlyPat.expand(rk, ctx),
+        rk3 = curlyPat.join(rk2, 1), rv = rk3[0],
+        key = rk3[1] ? rk3[1][1] : null, arr = curlyPat.eval(rk2, ctx),
+        start = start || 0; end = end || arr.length;
+      if (ctx.debug & 16) console.log('repeat', start, end, rk3);
       var frag = document.createDocumentFragment();
       for (var i = start; i < end; i++) {
+        if (!(i in arr)) break;
         ctx[rk] = rv + '.' + i;
+        if (_.isobj(arr[i]) && key in arr[i])
+          ctx[rk] += '=' + key + '=' + arr[i][key];
         fnExec(ctx._elBody, ctx, frag);
       }
       ctx[rk] = rv;
-      append(frag, el);
+      _.append(frag, el);
     }
   };
 
   cls.defaultPatterns = [curlyPat];
   cls.defaultModules = [modelMod, tmplMod, rptMod];
-  /****************************************************************************/
-  // ctx/state/model functions
-  function oapply(obj, ref, all) {
-    obj = obj || {};
-    for (var k in ref) if (all || k[0] !== '_') obj[k] = ref[k];
-    return obj;
-  };
-  function rapply(obj, ref) {
-    if (!obj || !ref) return;
-    for (var k in obj) if (k[0] === '$') ref[k] = obj[k];
-  };
-
-  /****************************************************************************/
-  // element/type functions
-
-  function isfn(val) { return typeof val === 'function'; }
-  function isstr(val) { return typeof val === 'string'; }
-  function isarr(val) { return typeof val !== 'undefined' && val instanceof Array; }
-  function isElement(obj) { return obj instanceof Element; }
-  function isText(obj) { return obj instanceof Text; }
-  function isComment(obj) { return obj instanceof Comment; }
-  function isDocFrag(obj) { return obj instanceof DocumentFragment; }
-
-  function isNwText(obj) {
-    if (isText(obj) && !isws(obj.wholeText)) return true;
-  }
-  function isws(str) { return /^\s*$/.test(str); }
-
-  function isolateText(obj) {
-    if (!isNwText(obj)) return obj;
-    var first = obj, last = obj, par = obj.parentNode;
-    while (isText(first.previousSibling)) first = first.previousSibling;
-    while (isText(last.nextSibling)) last = last.nextSibling;
-    if (!first.previousSibling && !last.nextSibling) {
-      var par = obj.parentNode
-      if (first === last) return par.firstChild;
-      par.textContent = par.textContent;
-      return par.firstChild;
-    } else {
-      var span = document.createElement('span');
-      before(span, first);
-      span.textContent = first.wholeText;
-      getRange(first, last).deleteContents();
-      return span;
-    }
-  }
-  function getFragEnds(el) {
-    if (!isDocFrag(el)) return;
-    return [el.firstChild, el.lastChild];
-  }
-  function getRange(first, last) {
-    if (!first) return;
-    if (isarr(first)) { last = first[1]; first = first[0]; }
-    var rng = document.createRange();
-    rng.setStartBefore(first); rng.setEndAfter(last);
-    return rng;
-  }
-  function elDel(el, dir) {
-    if ((el = elCheck(el)) === undefined) return;
-    var eParent = elCheck(el.parentNode);
-    if (eParent === undefined) return;
-    eParent.removeChild(el);
-  }
-  function before(eNew, eRef) {
-    if ((eRef = elCheck(eRef)) === undefined) return;
-    var eParent = elCheck(eRef.parentNode);
-    if (eParent === undefined) return;
-    var ends = getFragEnds(eNew);
-    eParent.insertBefore(eNew, eRef);
-    if (!ends) return eNew;
-    else return getRange(ends);
-  }
-  function append(eNew, ePar) {
-    if ((ePar = elCheck(ePar)) === undefined) return;
-    var ends = getFragEnds(eNew);
-    ePar.appendChild(eNew);
-    if (!ends) return eNew;
-    else return getRange(ends);
-  }
-  function elHasAttribute(obj, name) {
-    if (!isElement(obj)) return false;
-    if (isfn(obj.hasAttribute)) return false;
-    return obj.hasAttribute(name);
-  }
-  function elCheck(el) {
-    if (!el) return undefined;
-    if (isstr(el)) el = document.querySelector(el);
-    if (!isElement(el) && !isDocFrag(el) && !isText(el) && !isComment(el))
-      return undefined;
-    if (el.content) el = el.content;
-    return el;
-  }
-  function removeParent(el) {
-    var rng = getRange(el.firstChild, el.lastChild);
-    return rng.extractContents();
-  }
-  function nodePath(el) {
-    var retval = [];
-    while (el) {
-      retval.unshift(el.nodeName || el.tagName);
-      el = el.parentNode;
-    }
-    return retval.join('->');
-  }
-
-  /****************************************************************************/
 
   if (typeof val !== 'undefined' && module && module.exports) {
     Templar.webServer = require('./0ws');

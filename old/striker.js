@@ -1,11 +1,115 @@
 // npx uglifyjs striker.js striker-proxy.js -c -m -o striker.all.min.js
 'use strict';
+var tools = {
+  isfn: function (val) { return typeof val === 'function'; },
+  oapply: function (obj, ref) {
+    obj = obj || {};
+    for (var k in ref) if (k[0] !== '_') obj[k] = ref[k];
+    return obj;
+  },
+  rapply: function (obj, ref) {
+    if (!obj || !ref) return;
+    for (var k in ref) if ('_$'.indexOf(k[0]) < 0) ref[k] = obj[k];
+  },
+  append: function (eParent, eChildren) {
+    if (!eChildren.length || tools.isText(eChildren)) eChildren = [eChildren];
+    while (eChildren.length > 0) {
+      eParent.appendChild(eChildren[0]);
+      if (eChildren instanceof Array) eChildren.shift();
+    }
+  },
+  before: function (eRef, eChildren) {
+    var eParent;
+    if (!eChildren.length) eChildren = [eChildren];
+    if ((eRef = tools.elCheck(eRef)) === undefined) return;
+    if ((eParent = tools.elCheck(eRef.parentNode)) === undefined) return;
+    while (eChildren.length > 0) {
+      eParent.insertBefore(eChildren[0], eRef);
+      if (eChildren instanceof Array) eChildren.shift();
+    }
+  },
+  isElement: function (obj) { return obj instanceof Element; },
+  isText: function (obj) { return obj instanceof Text; },
+  isComment: function (obj) { return obj instanceof Comment; },
+  isDocFrag: function (obj) { return obj instanceof DocumentFragment; },
+  elHasAttribute: function (obj, name) {
+    if (!tools.isElement(obj)) return false;
+    if (typeof obj.hasAttribute !== 'function') return false;
+    return obj.hasAttribute(name);
+  },
+  elCheck: function (el) {
+    if (!el) return undefined;
+    if (typeof el === 'string') el = document.querySelector(el);
+    if (!tools.isElement(el) && !tools.isDocFrag(el) && !tools.isText(el))
+      return undefined;
+    if (el.content) el = el.content;
+
+    return el;
+  }
+};
+
+var mdl = {
+  pathSplit: function (spath) {
+    var rxSplit = /[.\[\]]+/g;
+    if (spath instanceof Array) return spath;
+    else if (typeof spath === 'string') return spath.split(rxSplit)
+    else return [];
+  },
+  pathJoin: function () {
+    var retval = [];
+    for (var i = 0; i < arguments.length; i++) {
+      var arg = arguments[i];
+      if (arg instanceof Array) retval = retval.concat(arg);
+      else if (arg === undefined) { }
+      else retval.push(arg);
+    }
+    return retval.join('.');
+  },
+  dataPath: function (o, state, path) {
+    path = mdl.pathSplit(path);
+
+    // dig out of any ^ rabbit holes, and log full path
+    var o2 = o, p2 = path.slice();
+    while (p2.length && p2.indexOf('^') >= 0 && o2) o2 = o2[p2.shift()];
+    var rp2 = o2['^p'], ri2 = o2['^i'];
+    state._tracePath = mdl.pathJoin(rp2, ri2, p2);
+    console.log('dataPath - ', state._tracePath);
+    if (o2) { o = o2; path = p2; }
+
+    var pfx = state && state.pfx instanceof Array ? state.pfx : [];
+
+    var i0 = 0;
+    if (path.length && !(path[0] in o)) {
+      if (path[0] === '^^') { o = window; i0 = 1; }
+      else if (path[0] === '^s') { o = state; i0 = 1; }
+      else for (var j = 0; j < pfx.length; j++)
+        if (path[0] in o[pfx[j]]) {
+          path.unshift(pfx[j]);
+          break;
+        }
+    }
+    for (var i = i0; i < path.length; i++) {
+      var p = path[i];
+      if (p === '') break;
+      var op = o[p];
+      if (op !== undefined) o = op;
+      else {
+        console.warn('path "' + path.join('.') + '" not found in data');
+        return '';
+      }
+    }
+    return o;
+  }
+
+};
+
 function Striker() {
   var t = this, modules = Striker.modules || [];
+
   modules.sort(function (a, b) { return a.rank - b.rank; });
 
   t.exec = function (e, data, removeParent, state) {
-    if ((e = elCheck(e)) === undefined) return;
+    if ((e = tools.elCheck(e)) === undefined) return;
     var e2 = e.cloneNode(true);
     t.traverse(e2, data, state);
     if (removeParent) {
@@ -14,37 +118,20 @@ function Striker() {
     }
     else return e2;
   };
-  t.append = function (eParent, eChildren) {
-    if (!eChildren.length || isText(eChildren)) eChildren = [eChildren];
-    while (eChildren.length > 0) {
-      eParent.appendChild(eChildren[0]);
-      if (eChildren instanceof Array) eChildren.shift();
-    }
-  };
-  t.before = function (eRef, eChildren) {
-    var eParent;
-    if (!eChildren.length) eChildren = [eChildren];
-    if ((eRef = elCheck(eRef)) === undefined) return;
-    if ((eParent = elCheck(eRef.parentNode)) === undefined) return;
-    while (eChildren.length > 0) {
-      eParent.insertBefore(eChildren[0], eRef);
-      if (eChildren instanceof Array) eChildren.shift();
-    }
-  };
   t.expend = function (eParent, e, data, removeParent, state) {
-    if ((eParent = elCheck(eParent)) === undefined) return;
+    if ((eParent = tools.elCheck(eParent)) === undefined) return;
     var e2 = t.exec(e, data, removeParent, state);
-    t.append(eParent, e2);
+    tools.append(eParent, e2);
     return eParent;
   };
 
   t.traverse = function (e, data, refstate) {
+    if (tools.isComment(e)) return e;
     // shallow copy state, but don't copy _* properties
-    var state = {};
-    for (var k in refstate) if (k[0] !== '_') state[k] = refstate[k];
-    if ((e = elCheck(e)) === undefined) return;
+    var state = tools.oapply({}, refstate);
+    if ((e = tools.elCheck(e)) === undefined) return;
 
-    if (isText(e))
+    if (tools.isText(e))
       moduleEval('t', e, 'nodeValue', e.parentNode, data, state, '>');
 
     if (e.attributes) for (var i = 0; i < e.attributes.length; i++) {
@@ -83,11 +170,11 @@ function Striker() {
       var m = modules[i];
       if (typeof m.apply !== 'string' || !(m.rx instanceof RegExp)) continue;
       if (m.apply.indexOf(type) >= 0) {
-        if (isfn(m.cbReplace)) robj[rkey] = robj[rkey]
+        if (tools.isfn(m.cbReplace)) robj[rkey] = robj[rkey]
           .replace(m.rx, m.cbReplace.bind(t, e, data, state, name));
-        if (isfn(m.cbMatch)) robj[rkey]
+        if (tools.isfn(m.cbMatch)) robj[rkey]
           .replace(m.rx, m.cbMatch.bind(t, e, data, state, name));
-        if (isfn(m.cbEval) && m.rx.test(robj[rkey]))
+        if (tools.isfn(m.cbEval) && m.rx.test(robj[rkey]))
           m.cbEval.apply(t, [type, robj, rkey, e, data, state, name]);
         moduleCbFetch(m, 'cbChildren', robj[rkey], state);
         moduleCbFetch(m, 'cbCleanup', robj[rkey], state);
@@ -97,80 +184,14 @@ function Striker() {
   t.moduleEval = moduleEval;
 
   function moduleCbFetch(m, name, testval, state) {
-    if (isfn(m[name]) && m.rx.test(testval)) {
+    if (tools.isfn(m[name]) && m.rx.test(testval)) {
       if (!(state['_' + name] instanceof Array)) state['_' + name] = [];
       if (state['_' + name].indexOf(m[name]) < 0) state['_' + name].push(m[name]);
     }
   }
 
-  function elCheck(el) {
-    if (!el) return undefined;
-    if (typeof el === 'string') el = document.querySelector(el);
-    if (!isElement(el) && !isDocFrag(el) && !isText(el)) return undefined;
-    if (el.content) el = el.content;
-
-    if (isDocFrag(el)) {
-      var srcEl = elSingleRealChild(el);
-      if (srcEl) return srcEl;
-    }
-    return el;
-  };
-  function elSingleRealChild(el) {
-    var firstRealChild = null;
-    var ce = el.firstChild;
-    while (ce != null) {
-      if (isText(ce) && /^\s+$/.test(ce.nodeValue)) { }
-      else if (!firstRealChild) firstRealChild = ce;
-      else return null;
-      ce = ce.nextSibling;
-    }
-    return firstRealChild;
-  }
-  function isElement(obj) { return obj instanceof Element; }
-  function isText(obj) { return obj instanceof Text; }
-  function isDocFrag(obj) { return obj instanceof DocumentFragment; }
-  function isfn(val) { return typeof val === 'function'; }
-  t.elHasAttribute = function (obj, name) {
-    if (!isElement(obj)) return false;
-    if (typeof obj.hasAttribute !== 'function') return false;
-    return obj.hasAttribute(name);
-  }
-  t.isElement = isElement;
-  t.elCheck = elCheck;
-  t.isfn = isfn;
 }
 
-Striker.pathSplit = function (spath) {
-  var rxSplit = /[.\[\]]+/g;
-  if (spath instanceof Array) return spath;
-  else if (typeof spath === 'string') return spath.split(rxSplit)
-  else return [];
-};
-Striker.dataPath = function (o, state, path) {
-  path = Striker.pathSplit(path);
-  var pfx = state && state.pfx instanceof Array ? state.pfx : [];
-  var i0 = 0;
-  if (path.length && !(path[0] in o)) {
-    if (path[0] === '^^') { o = window; i0 = 1; }
-    if (path[0] === '^s') { o = state; i0 = 1; }
-    else for (var j = 0; j < pfx.length; j++)
-      if (path[0] in o[pfx[j]]) {
-        path.unshift(pfx[j]);
-        break;
-      }
-  }
-  for (var i = i0; i < path.length; i++) {
-    var p = path[i];
-    if (p === '') break;
-    var op = o[p];
-    if (op !== undefined) o = op;
-    else {
-      console.warn('path "' + path.join('.') + '" not found in data');
-      return '';
-    }
-  }
-  return o;
-};
 
 (function () {
   var cbAutoChange = function (data, path) {
@@ -184,16 +205,16 @@ Striker.dataPath = function (o, state, path) {
     rx: /{{\s*(.+?)\s*}}/ig,
     apply: 'tv',
     cbReplace: function (e, data, state, name, all, spath) {
-      var path = Striker.pathSplit(spath);
+      var path = mdl.pathSplit(spath);
       var pfx = state.pfx;
-      var o = Striker.dataPath(data, state, path);
-      if (name !== '>' && typeof o === 'function' && this.isElement(e)) {
+      var o = mdl.dataPath(data, state, path);
+      if (name !== '>' && typeof o === 'function' && tools.isElement(e)) {
         e.attributes.removeNamedItem(name);
         delete e[name];
         e.addEventListener(name.replace(/^on-?/i, ''), o.bind(e, data, path));
         o = '';
       }
-      if (name === 'value' && !e.valueBindApplied && this.elHasAttribute(e, 'value-bind')) {
+      if (name === 'value' && !e.valueBindApplied && tools.elHasAttribute(e, 'value-bind')) {
         e.valueBindApplied = true;
         e.addEventListener('change', cbAutoChange.bind(e, data, path));
       }
@@ -206,7 +227,7 @@ Striker.dataPath = function (o, state, path) {
     apply: 'tv',
     cbReplace: function (e, data, state, name, all, fnbody) {
       var fn = (new Function('data, dp, event', fnbody))
-        .bind(e, data, Striker.dataPath.bind(null, data, state));
+        .bind(e, data, mdl.dataPath.bind(null, data, state));
       if (/^on-?/i.test(name)) {
         e.addEventListener(name.replace(/^on-?/i, ''), fn);
         return '';
@@ -237,7 +258,7 @@ Striker.dataPath = function (o, state, path) {
           var pageNext = fnLoopy(el, 0, pageSize);
           if (pageNext >= rarray.length) return;
 
-          var ttag = that.elCheck(name);
+          var ttag = tools.elCheck(name);
           if (!ttag) {
             ttag = document.createElement('a');
             ttag.textContent = 'Show more... (Showing: {{cur}} of {{ttl}})';
@@ -245,18 +266,18 @@ Striker.dataPath = function (o, state, path) {
             ttag.style.display = 'block';
           }
           var atag = that.exec(ttag, { cur: pageNext, ttl: rarray.length });
-          that.append(el, atag);
+          tools.append(el, atag);
           atag.onclick = function (event) {
             if (state.stats) state.stats._reset = true;
             event.preventDefault();
             var ediv = document.createElement('div');
             pageNext = fnLoopy(ediv, pageNext, pageNext + pageSize);
-            that.before(atag, ediv);
+            tools.before(atag, ediv);
             if (pageNext >= rarray.length) atag.remove();
             else {
               var tagContents = that.exec(ttag, { cur: pageNext, ttl: rarray.length }, true);
               atag.innerHTML = '';
-              that.append(atag, tagContents);
+              tools.append(atag, tagContents);
             }
             return false;
           };
@@ -281,10 +302,11 @@ Striker.dataPath = function (o, state, path) {
     rx: /^data-repeat-([^-]+)-?(.*)$/,
     apply: 'k',
     cbMatch: function (e, data, state, name, all, rname, rremove) {
-      var path = Striker.pathSplit(name);
-      var arr = Striker.dataPath(data, state, path);
+      var path = mdl.pathSplit(name);
+      var arr = mdl.dataPath(data, state, path);
       if (arr && arr.length) {
         state._rarray = arr;
+        state._rpath = path;
         state._rname = rname;
         state._rremove = rremove;
         state._tmpOverride = true;
@@ -292,7 +314,7 @@ Striker.dataPath = function (o, state, path) {
     },
     cbChildren: function (e, data, state) {
       var that = this;
-      var tmpName = state._tmpName, rarray = state._rarray,
+      var tmpName = state._tmpName, rarray = state._rarray, rpath = state._rpath,
         rname = state._rname, rremove = state._rremove, rdata;
       if (tmpName == null) {
         tmpName = e.cloneNode(true);
@@ -304,9 +326,9 @@ Striker.dataPath = function (o, state, path) {
       var fnLoopy = function (el, start, end) {
         for (var i = start; i < end; i++) {
           if (i >= rarray.length) break;
-          (rdata = { '^': data })[rname] = rarray[i];
+          (rdata = { '^': data, '^p': rpath, '^i': i })[rname] = rarray[i];
           that.expend(el, tmpName, rdata, true, state);
-          if (isPaginate && that.isfn(state.statAlert) && state.statAlert()) {
+          if (isPaginate && tools.isfn(state.statAlert) && state.statAlert()) {
             i++;
             break;
           }
@@ -319,7 +341,7 @@ Striker.dataPath = function (o, state, path) {
 
       if (rremove) {
         var newE = e.lastChild;
-        that.before(e, e.childNodes);
+        tools.before(e, e.childNodes);
         e.remove();
         e = newE;
       }

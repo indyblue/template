@@ -5,6 +5,7 @@
 <head>
 	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
 	<title>Attributes example</title>
+	<script type="text/javascript" src='ttools.js'></script>
 	<script type="text/javascript" src='templar.js'></script>
 </head>
 
@@ -13,7 +14,7 @@
 		<!-- test comment -->
 		<div>{{ model.last }}, {{model.first}}</div>
 		<div data-repeat-n='model.q.nums' data-template='#formula'> </div>
-		<div data-repeat-d='model.ph'>
+		<div data-repeat-d='model.ph.=id'>
 			<div>number: +1-{{d.p}}-{{d.n}} ({{model.last}}) <input value='{{d.n}}' /></div>
 		</div>
 		<!-- test comment2 -->
@@ -29,17 +30,26 @@
 			last: 'jones', first: 'sam',
 			q: { nums: [1, 2, 3, 4, 5, 6] },
 			ph: [
-				{ p: '317', n: '123-4567' },
-				{ p: '317', n: '123-4568' },
-				{ p: '317', n: '123-4569' },
-				{ p: '317', n: '123-4560' },
-				{ p: '317', n: '123-4561' },
-				{ p: '317', n: '123-4562' },
-				{ p: '317', n: '123-4563' },
+				{ id: 1, p: '317', n: '123-4567' },
+				{ id: 2, p: '317', n: '123-4568' },
+				{ id: 3, p: '317', n: '123-4569' },
+				{ id: 4, p: '317', n: '123-4560' },
+				{ id: 5, p: '317', n: '123-4561' },
+				{ id: 6, p: '317', n: '123-4562' },
+				{ id: 7, p: '317', n: '123-4563' },
 			]
 		};
-		var tmp = new Templar(document.body, '#persons', data);
-		tmp.debug = true;
+		var ctx;
+		/*
+		debug:
+			1: node
+			2: text
+			4: attr
+			8: eval
+			16: repeat
+		*/
+		ctx = { debug: 8+16 };
+		var tmp = new Templar(document.body, '#persons', data, ctx);
 		tmp.exec();
 		/* test recalc:
 			data.last = 'smith'; data.first = 'ron'; tmp.recalc();
