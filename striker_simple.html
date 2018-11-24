@@ -6,7 +6,12 @@
 	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
 	<title>Attributes example</title>
 	<script type="text/javascript" src='ttools.js'></script>
-	<script type="text/javascript" src='templar.js'></script>
+	<script type="text/javascript" src='templar-s.js'></script>
+	<style>
+		.red {
+			background-color: red;
+		}
+	</style>
 </head>
 
 <body>
@@ -14,14 +19,14 @@
 		<!-- test comment -->
 		<div>{{ model.last }}, {{model.first}}</div>
 		<div data-repeat-n='model.q.nums' data-template='#formula'> </div>
-		<div data-repeat-d='model.ph.=id'>
-			<div>number: +1-{{d.p}}-{{d.n}} ({{model.last}}) <input value='{{d.n}}' /></div>
+		<div data-repeat-d='model.ph'>
+			<div>number: +1-{{d.p}}-{{d.n}} ({{model.last}}) <input value-bind value='{{d.n}}' /></div>
 		</div>
 		<!-- test comment2 -->
 	</template>
 
 	<template id='formula'>
-		<div data-model-n>{{n}} {{model.first}} ({{model.q.nums.3}} to the {{n}}th power)</div>
+		<div on-click='{{color}}' data-model-n>{{n}} {{model.first}} ({{model.q.nums.3}} to the {{n}}th power)</div>
 	</template>
 
 	<script>
@@ -48,7 +53,13 @@
 			8: eval
 			16: repeat
 		*/
-		ctx = { debug: 8+16 };
+		ctx = {
+			debug: 8 + 16,
+			color: function (ctx, path) {
+				console.log('color-toggle', path, ctx);
+				this.classList.toggle('red');
+			}
+		};
 		var tmp = new Templar(document.body, '#persons', data, ctx);
 		tmp.exec();
 		/* test recalc:

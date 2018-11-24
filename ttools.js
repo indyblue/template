@@ -3,9 +3,10 @@ var templarTools;
 (function () {
   var _ = templarTools = {};
 
-  _.oapply = function (obj, ref, all) {
+  _.oapply = function (obj, ref, node) {
     obj = obj || {};
-    for (var k in ref) if (all || k[0] !== '_') obj[k] = ref[k];
+    for (var k in ref) if (k[0] !== '_') obj[k] = ref[k];
+    obj._node = _.isText(node) ? node.parentElement : node;
     return obj;
   }
   _.rapply = function (obj, ref) {
@@ -87,7 +88,7 @@ var templarTools;
   }
   _.elHasAttribute = function (obj, name) {
     if (!_.isElement(obj)) return false;
-    if (_.isfn(obj.hasAttribute)) return false;
+    if (!_.isfn(obj.hasAttribute)) return false;
     return obj.hasAttribute(name);
   }
   _.elCheck = function (el) {
