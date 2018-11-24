@@ -105,6 +105,7 @@ var Templar;
         e.attributes.removeNamedItem(name); delete e[name];
       } else if (name === 'value' && !e.valueBindApplied && _.elHasAttribute(e, 'value-bind')) {
         ename = 'change'
+        e.valueBindApplied = true;
         fn = curlyPat.cbAutoChange;
       }
       if (ename) {
