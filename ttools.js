@@ -28,10 +28,15 @@ var templarTools;
   }
 
   _.isAttached = function (el) {
+    if (el instanceof Attr && el.ownerElement) el = el.ownerElement;
+    else if (_.isText(el) && el.parentElement) el = el.parentElement;
     return el.closest('body') ? true : false;
   }
+  _.isSingleTextChild = function (obj) {
+    return _.isElement(obj) && obj.childNodes.length === 1 && _.isText(obj.firstChild);
+  }
   _.isNwText = function (obj) {
-    if (_.isText(obj) && !_.isws(obj.wholeText)) return true;
+    return (_.isText(obj) && !_.isws(obj.wholeText));
   }
   _.isws = function (str) { return /^\s*$/.test(str); }
 
@@ -53,35 +58,43 @@ var templarTools;
       return span;
     }
   }
-  _.getFragEnds = function (el) {
+  _.getFragRange = function (el) {
     if (!_.isDocFrag(el)) return;
-    return [el.firstChild, el.lastChild];
+    return _.getRange(el);
   }
+  _.isRange = function (el) { return el instanceof Range; }
   _.getRange = function (first, last) {
     if (!first) return;
+    if (_.isDocFrag(first)) { last = first.lastChild; first = first.firstChild; }
+    if (_.isRange(first) && first.resetBounds) return first.resetBounds();
     if (_.isarr(first)) { last = first[1]; first = first[0]; }
+    if (first === last || last === undefined) return first;
     var rng = document.createRange();
-    rng.setStartBefore(first); rng.setEndAfter(last);
+    rng.firstNode = first; rng.lastNode = last;
+    (rng.resetBounds = function () {
+      rng.setStartBefore(first); rng.setEndAfter(last); return rng;
+    })();
     return rng;
   }
-  _.elDel = function (el, dir) {
+  _.elRemove = function (el) {
+    if (_.isRange(el) && el.resetBounds) return el.resetBounds().extractContents();
     if ((el = _.elCheck(el)) === undefined) return;
     var eParent = _.elCheck(el.parentNode);
     if (eParent === undefined) return;
-    eParent.removeChild(el);
+    return eParent.removeChild(el);
   }
   _.before = function (eNew, eRef) {
     if ((eRef = _.elCheck(eRef)) === undefined) return;
     var eParent = _.elCheck(eRef.parentNode);
     if (eParent === undefined) return;
-    var ends = _.getFragEnds(eNew);
+    var ends = _.getFragRange(eNew);
     eParent.insertBefore(eNew, eRef);
     if (!ends) return eNew;
     else return _.getRange(ends);
   }
   _.append = function (eNew, ePar) {
     if ((ePar = _.elCheck(ePar)) === undefined) return;
-    var ends = _.getFragEnds(eNew);
+    var ends = _.getFragRange(eNew);
     ePar.appendChild(eNew);
     if (!ends) return eNew;
     else return _.getRange(ends);
@@ -101,7 +114,7 @@ var templarTools;
   }
   _.removeParent = function (el) {
     var rng = _.getRange(el.firstChild, el.lastChild);
-    return rng.extractContents();
+    return _.elRemove(rng);
   }
   _.nodePath = function (el) {
     var retval = [];

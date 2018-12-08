@@ -5,6 +5,7 @@
 <head>
 	<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
 	<title>Attributes example</title>
+	<script type="text/javascript" src='poly-map.js'></script>
 	<script type="text/javascript" src='ttools.js'></script>
 	<script type="text/javascript" src='templar-s.js'></script>
 	<style>
@@ -17,11 +18,12 @@
 <body>
 	<template id='persons'>
 		<!-- test comment -->
-		<div>{{ model.last }}, {{model.first}}</div>
+		<div style='background-color:{{model.nameColor}}'>{{ model.last }}, {{model.first}}</div>
 		<div data-repeat-n='model.q.nums' data-template='#formula'> </div>
-		<div data-repeat-d='model.ph'>
+		<div data-repeat-d='model.ph.=id'>
 			<div>number: +1-{{d.p}}-{{d.n}} ({{model.last}}) <input value-bind value='{{d.n}}' /></div>
 		</div>
+		<ul data-template='#dir' data-repeat-d='model.dir.=key'></ul>
 		<!-- test comment2 -->
 	</template>
 
@@ -29,10 +31,16 @@
 		<div on-click='{{color}}' data-model-n>{{n}} {{model.first}} ({{model.q.nums.3}} to the {{n}}th power)</div>
 	</template>
 
+	<template data-model-d id='dir'><li>
+			<span>{{d.key}}</span>
+			<ul data-template='#dir' data-repeat-d='d.dir.=key'></ul>
+	</li></template>
+
 	<script>
 		'use strict';
 		var data = {
-			last: 'jones', first: 'sam',
+			last: 'jones', first: '<b>sam</b>',
+			nameColor: 'yellow',
 			q: { nums: [1, 2, 3, 4, 5, 6] },
 			ph: [
 				{ id: 1, p: '317', n: '123-4567' },
@@ -42,6 +50,30 @@
 				{ id: 5, p: '317', n: '123-4561' },
 				{ id: 6, p: '317', n: '123-4562' },
 				{ id: 7, p: '317', n: '123-4563' },
+			],
+			dir: [
+				{ key: 'file1' },
+				{
+					key: 'dir2',
+					dir: [
+						{ key: 'dir2/file1' },
+						{ key: 'dir2/file2' },
+						{
+							key: 'dir2/dir3',
+							dir: [
+								{ key: 'dir2/dir3/file1' },
+								{ key: 'dir2/dir3/file2' },
+								{
+									key: 'dir2/dir3/file3',
+								},
+								{ key: 'dir2/dir3/file4' },
+							]
+						},
+						{ key: 'dir2/file4' },
+					]
+				},
+				{ key: 'file3' },
+				{ key: 'file4' },
 			]
 		};
 		var ctx;
@@ -54,7 +86,7 @@
 			16: repeat
 		*/
 		ctx = {
-			debug: 8 + 16,
+			//debug: 8 + 16,
 			color: function (ctx, path) {
 				console.log('color-toggle', path, ctx);
 				this.classList.toggle('red');
@@ -62,8 +94,17 @@
 		};
 		var tmp = new Templar(document.body, '#persons', data, ctx);
 		tmp.exec();
+		tmp.monLog();
+		setTimeout(() => {
+			document.querySelector('div div[data-model-n]').remove();
+			document.querySelector('div div[data-model-n]').remove();
+			document.querySelector('div div[data-model-n]').remove();
+			data.dir.push({ key: 'file5', dir: [{ key: 'asdf1' }, { key: 'qwer2' }] });
+			data.nameColor = 'red'; data.last = 'smith'; data.first = 'ron'; tmp.recalc();
+			tmp.monLog();
+		}, 800);
+
 		/* test recalc:
-			data.last = 'smith'; data.first = 'ron'; tmp.recalc();
 		*/
 	</script>
 
