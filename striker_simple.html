@@ -21,7 +21,7 @@
 		<div style='background-color:{{model.nameColor}}'>{{ model.last }}, {{model.first}}</div>
 		<div data-repeat-n='model.q.nums' data-template='#formula'> </div>
 		<div data-repeat-d='model.ph.=id'>
-			<div>number: +1-{{d.p}}-{{d.n}} ({{model.last}}) <input value-bind value='{{d.n}}' /></div>
+			<div><b>{{d.id}}</b> - number: +1-{{d.p}}-{{d.n}} ({{model.last}}) <input value-bind value='{{d.n}}' /></div>
 		</div>
 		<ul data-template='#dir' data-repeat-d='model.dir.=key'></ul>
 		<!-- test comment2 -->
@@ -32,8 +32,8 @@
 	</template>
 
 	<template data-model-d id='dir'><li>
-			<span>{{d.key}}</span>
-			<ul data-template='#dir' data-repeat-d='d.dir.=key'></ul>
+		<span>{{d.key}}</span>
+		<ul data-template='#dir' data-repeat-d='d.dir.=key'></ul>
 	</li></template>
 
 	<script>
@@ -94,14 +94,21 @@
 		};
 		var tmp = new Templar(document.body, '#persons', data, ctx);
 		tmp.exec();
-		tmp.monLog();
+		//tmp.monLog();
 		setTimeout(() => {
-			document.querySelector('div div[data-model-n]').remove();
-			document.querySelector('div div[data-model-n]').remove();
-			document.querySelector('div div[data-model-n]').remove();
-			data.dir.push({ key: 'file5', dir: [{ key: 'asdf1' }, { key: 'qwer2' }] });
+			// document.querySelector('div div[data-model-n]').remove();
+			// document.querySelector('div div[data-model-n]').remove();
+			// document.querySelector('div div[data-model-n]').remove();
+			data.dir[0].dir = [{ key: 'asdf' }];
+			//data.q.nums.splice(2, 1);
+			data.q.nums.splice(2, 0, 7);
+			var t = data.ph.splice(3, 1);
+			console.log(3, 4, JSON.stringify(t));
+			data.ph.splice(4, 1, t[0]);
+			data.dir.splice(2, 1);
+			data.dir.splice(2, 0, { key: 'file5', dir: [{ key: 'asdf1' }, { key: 'qwer2' }] });
 			data.nameColor = 'red'; data.last = 'smith'; data.first = 'ron'; tmp.recalc();
-			tmp.monLog();
+			//tmp.monLog();
 		}, 800);
 
 		/* test recalc:

@@ -5,6 +5,7 @@ debug:
   4: attr
   8: eval
   16: repeat
+  32: domMon
 */
 'use strict';
 var Templar;
@@ -17,6 +18,9 @@ var Templar;
     Object.defineProperty(CTX.prototype, "model", {
       get: function () { return ist.model; }
     });
+    Object.defineProperty(CTX.prototype, "ist", {
+      get: function () { return ist; }
+    });
     ist.model = model;
     var _ctx = _.oapply(new CTX(), ctx);
 
@@ -25,12 +29,15 @@ var Templar;
     if (domMon) {
       ist._domMon = new domMon();
       ist.recalc = function () { ist._domMon.recalc(_ctx, ist) };
-      ist.monLog = function () { console.log(ist._domMon.watchList); };
+      ist.monLog = function () {
+        console.log('watchlist', ist._domMon.watchList);
+        console.log('rptList', ist._domMon.rptList);
+      };
     }
 
-    ist.exec = function () { return _exec(_temp, _ctx, _par); }
+    ist.exec = function () { return ist._exec(_temp, _ctx, _par); }
 
-    function _exec(e, ctx, par) {
+    ist._exec = function (e, ctx, par) {
       if (!(e = _.elCheck(e))) return;
       var e2 = e.cloneNode(true);
       _traverse(e2, ctx);
@@ -61,7 +68,7 @@ var Templar;
         _moduleLoop(a.name, a.value, e, ctx);
       }
 
-      if (_.isfn(ctx._handleChildren)) ctx._handleChildren(e, ctx, _exec, ist);
+      if (_.isfn(ctx._handleChildren)) ctx._handleChildren(e, ctx);
       else { // default child functionality, if not overridden
         if (ctx._elBody) {
           e.innerHTML = '';
@@ -124,7 +131,7 @@ var Templar;
         fn = curlyPat.cbAutoChange;
       }
       if (ename) {
-        console.log('bind', ename, e.nodeName);
+        if (ctx.debug & 8) console.log('bind', ename, e.nodeName);
         e.addEventListener(ename, fn.bind(e, ctx, path));
       }
       return val;
@@ -133,7 +140,7 @@ var Templar;
       var o = ctx, p = path.slice();
       while (p.length > 1) o = o[p.shift()];
       o[p[0]] = this.value;
-      console.log('change-value-bind', this.value, o, p[0]);
+      if (ctx.debug & 8) console.log('change-value-bind', this.value, o, p[0]);
     },
 
     rxPat: /[.\[\]]+/g,
@@ -163,7 +170,7 @@ var Templar;
         if (key in o) o = o[key];
         else if (domMon) o = domMon.arrayKey(o, key);
         if (typeof o === 'undefined') {
-          console.warn('path not found', key, ' - ', spath);
+          if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
           o = ''; break;
         }
       }
@@ -181,6 +188,11 @@ var Templar;
   };
   { // domMon static props
     var dmProt = domMon.prototype;
+    dmProt.recalc = function (ctx) {
+      this.recalcPat(ctx);
+      this.recalcRpt(ctx);
+    };
+
     dmProt.patStart = function (obj) { this.curpat = obj; };
     dmProt.patEnd = function () {
       if (!this.curpat) return;
@@ -193,12 +205,12 @@ var Templar;
         this.watchList[spath] = { value: value, objs: [] };
       this.watchList[spath].objs.push(this.curpat);
     };
-    dmProt.recalcPat = function (ctx, ist) {
+    dmProt.recalcPat = function (ctx) {
       var objs = [];
       for (var key in this.watchList) {
         var watch = this.watchList[key], newval = curlyPat.eval(key, ctx);
         if (watch.value !== newval) {
-          console.log('calc', watch.value === newval, key, watch.value, newval, watch.objs.length);
+          if (ctx.debug & 32) console.log('calc', watch.value === newval, key, watch.value, newval, watch.objs.length);
           for (var j = watch.objs.length - 1; j >= 0; j--) {
             var ref = watch.objs[j];
             if (!_.isAttached(ref.robj)) watch.objs.splice(j, 1);
@@ -211,29 +223,103 @@ var Templar;
       for (var i = 0; i < objs.length; i++) {
         var o = objs[i];
         o.robj[o.rkey] = o.pattern;
-        ist._patLoop(o.robj, o.rkey, o.ctx, o.name, true);
+        ctx.ist._patLoop(o.robj, o.rkey, o.ctx, o.name, true);
       }
     };
 
-    dmProt.rptStart = function (spath, el, info) {
-      console.log('rptStart', spath, el, info);
+    dmProt.rptStart = function (spath, el, ctx, key) {
+      if (ctx.debug & 32) console.log('rptStart', spath, el, ctx);
       if (!this.rptList.has(spath, el))
-        this.rptList.set(spath, el, { info: info, arr: [] });
+        this.rptList.set(spath, el, {
+          ctx: ctx, key: key, arr: []
+        });
     };
-    dmProt.rptAdd = function (spath, el, item) {
-      console.log('rptAdd', spath, el, item);
+    dmProt.rptAdd = function (spath, el, item, i) {
+      if (ctx.debug & 32) console.log('rptAdd', spath, el, item);
       var obj = this.rptList.get(spath, el);
-      obj.arr.push(item);
+      if (typeof i === 'number' && i >= 0 && i < obj.arr.length)
+        obj.arr.splice(i, 0, item);
+      else obj.arr.push(item);
     };
-    dmProt.recalcRpt = function (ctx, ist) {
+    dmProt.recalcRpt = function (ctx) {
       this.rptList.forEach(function (obj, spath, el) {
-        console.log('*****recalc RPT', spath, el, obj);
+        var arr = curlyPat.eval(spath, obj.ctx);
+        if (_.isarr(arr)) {
+          var cnt = [0, 0, 0];
+          // if (arr.length !== obj.arr.length)
+          //   console.log('*****recalc RPT', spath, el, obj, arr);
+          cnt[0] += domMon.arrayRemove(arr, obj.arr, obj.key, 'value');
+          cnt[1] += domMon.arrayAdd(arr, obj.arr, obj.key, 'value', obj.ctx, el);
+          cnt[2] += domMon.arrayOrder(arr, obj.arr, obj.key, 'value');
+          if (cnt[0] + cnt[1] + cnt[2])
+            console.log('*****recalc RECAP', JSON.stringify(cnt), spath, el, obj, arr);
+        }
       });
     };
+    domMon.arrayRemove = function (na, oa, nk, ok) {
+      var nl = na.length, cnt = 0;
+      if (!nk) while (oa.length > nl) {
+        var obj = oa.pop();
+        _.elRemove(obj.el);
+        cnt++;
+      } else {
+        var nak = domMon.map(na, nk, true);
+        for (var i = oa.length - 1; i >= 0; i--) { //reverse order, removals
+          if (!(oa[i][ok] in nak)) { // if not in new keys, remove
+            var obj = oa.splice(i, 1)[0];
+            _.elRemove(obj.el);
+            cnt++;
+          }
+        }
+      }
+      return cnt;
+    };
+    domMon.arrayAdd = function (na, oa, nk, ok, ctx, el) {
+      if (!rptMod) return;
+      var nl = na.length, cnt = 0;
+      if (!nk) while (oa.length < nl) {
+        rptMod.cbChildItem(na, oa.length, ctx, el);
+        _.append(ctx._rfrag, el);
+        cnt++;
+        if (cnt > 5000) break;
+      } else {
+        var oak = domMon.map(oa, ok, true);
+        var nak = domMon.map(na, nk);
+        for (var i = 0; i < na.length; i++) {
+          if (!(nak[i] in oak)) { // if not in old keys, add
+            var insert = (i in oa);
+            rptMod.cbChildItem(na, i, ctx, el);
+            if (insert) _.before(ctx._rfrag, oa[i + 1].el);
+            else _.append(ctx._rfrag, el);
+            cnt++;
+          }
+        }
+      }
+      return cnt;
+    };
+    domMon.arrayOrder = function (na, oa, nk, ok) {
+      var cnt = 0;
+      if (!nk) return cnt;
+      var oak = domMon.map(oa, ok, true);
+      var nak = domMon.map(na, nk);
+      for (var i = 0; i < na.length; i++) {
+        var oi = oak[nak[i]];
+        if (oi != i) {
+          console.log('move el', nak[i], 'from', oi, 'to', i);
+          cnt++;
+        }
+      }
+      return cnt;
+    };
 
-    dmProt.recalc = function (ctx, ist) {
-      this.recalcPat(ctx, ist);
-      this.recalcRpt(ctx, ist);
+    domMon.map = function (arr, key, makeObject) {
+      var retval = makeObject ? {} : [];
+      for (var i = 0; i < arr.length; i++) {
+        var ck = domMon.cleanKey(arr[i][key]);
+        if (makeObject && ck) retval[ck] = i;
+        else if (!makeObject) retval.push(ck || i);
+      }
+      return retval;
     };
 
     domMon.cleanKey = function (key) {
@@ -247,28 +333,28 @@ var Templar;
       var c = domMon.cleanKey;
       if (i in o && (v === '' || (k in o[i] && c(o[i][k]) == c(v)))) return o[i];
       for (i = 0; i < o.length; i++) {
-        if ((k in o[i] && o[i][k] === v)) return o[i];
+        if ((k in o[i] && o[i][k] == v)) return o[i];
       }
       return undefined;
     };
     domMon.arrayPath = function (path, arr, i, kv) {
+      kv = kv || {}; arr = arr || [];
       path = curlyPat.split(path);
       var key = path.pop(), weak = false;;
-      if (!/^=/.test(key)) {
+      if (!/^\d*=/.test(key)) {
         path.push(key); key = i; weak = true;
       } else {
-        var k = key.split('=')[1], o = arr[i];
+        var k = kv.key = key.split('=')[1], o = arr[i] || {};
         if (k === '' || !(k in o) || !o[k]) {
           key = i; weak = true;
         } else {
-          var val = domMon.cleanKey(o[k]);
-          if (kv) { kv.key = k; kv.value = val; }
+          var val = kv.value = domMon.cleanKey(o[k]);
           key = [i, k, val].join('=');
         }
       }
       path.push(key);
       var retval = curlyPat.join(path);
-      if (weak) console.log('array weak key', retval);
+      if (weak && ctx.debug & 32) console.log('array weak key', retval);
       return retval;
     };
   }
@@ -297,37 +383,39 @@ var Templar;
   var rptMod = {
     rx: /^data-repeat-([a-z]\w*)$/i,
     cb: function (mkey, value, e, ctx) {
-      ctx.rpath = modelMod.cb(mkey, value, e, ctx);
+      ctx._rpath = modelMod.cb(mkey, value, e, ctx);
+      ctx._rkey = curlyPat.expand(ctx._rpath, ctx, true);
+      ctx._rskey = curlyPat.join(ctx._rkey);
+      ctx._rfrag = document.createDocumentFragment();
       if (!ctx._elBody) ctx._elBody = _.removeParent(e);
       ctx._handleChildren = rptMod.cbChildren;
     },
-    cbChildren: function (el, ctx, fnExec, ist) {
-      rptMod.cbChildLoop(el, ctx, fnExec, ist);
+    cbChildren: function (el, ctx) {
+      rptMod.cbChildLoop(el, ctx);
     },
-    cbChildLoop: function (el, ctx, fnExec, ist, start, end) {
-      var rk = ctx.rpath, key = curlyPat.expand(rk, ctx, true),
-        skey = curlyPat.join(key),
-        arr = curlyPat.eval(key, ctx), ipath, kv;
-
-      if (ist._domMon) ist._domMon.rptStart(skey, el, {
-        ctx: ctx, fn: fnExec, ist: ist
-      });
+    cbChildLoop: function (el, ctx, start, end) {
+      var arr = curlyPat.eval(ctx._rkey, ctx), ist = ctx.ist, kv = {};
+      if (domMon) domMon.arrayPath(ctx._rkey, [], '', kv);
+      if (ist._domMon) ist._domMon.rptStart(ctx._rskey, el, ctx, kv.key);
       if (!_.isarr(arr)) return;
       start = start || 0; end = end || arr.length;
-      if (ctx.debug & 16) console.log('repeat', start, end, key);
-      var frag = document.createDocumentFragment();
-      for (var i = start; i < end; i++) {
-        if (!(i in arr)) break;
-        if (domMon) ipath = domMon.arrayPath(key, arr, i, kv = {});
-        else ipath = key + '.' + i;
-        ctx[rk] = ipath;
-        var newel = fnExec(ctx._elBody, ctx, frag);
-        if (ist._domMon) ist._domMon.rptAdd(skey, el, {
-          key: kv.key, value: kv.value, ctx: ctx, el: newel
-        });
-      }
-      ctx[rk] = key;
-      _.append(frag, el);
+      if (ctx.debug & 16) console.log('repeat', start, end, ctx._rkey);
+      for (var i = start; i < end; i++)
+        rptMod.cbChildItem(arr, i, ctx, el);
+      _.append(ctx._rfrag, el);
+    },
+    cbChildItem: function (arr, i, ctx, el) {
+      var ist = ctx.ist, ipath, kv;
+      if (!(i in arr)) return null;
+      if (domMon) ipath = domMon.arrayPath(ctx._rkey, arr, i, kv = {});
+      else ipath = ctx._rkey + '.' + i;
+      ctx[ctx._rpath] = ipath;
+      var newel = ist._exec(ctx._elBody, ctx, ctx._rfrag);
+      ctx[ctx._rpath] = ctx._rkey;
+      if (ist._domMon) ist._domMon.rptAdd(ctx._rskey, el, {
+        key: kv.key, value: kv.value, ctx: ctx, el: newel
+      }, i);
+      return newel;
     }
   };
 

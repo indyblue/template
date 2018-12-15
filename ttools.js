@@ -69,6 +69,8 @@ var templarTools;
     if (_.isRange(first) && first.resetBounds) return first.resetBounds();
     if (_.isarr(first)) { last = first[1]; first = first[0]; }
     if (first === last || last === undefined) return first;
+    if (_.isText(first)) first = _.before(document.createComment('s'), first);
+    if (_.isText(last)) last = _.after(document.createComment('e'), last);
     var rng = document.createRange();
     rng.firstNode = first; rng.lastNode = last;
     (rng.resetBounds = function () {
@@ -83,12 +85,14 @@ var templarTools;
     if (eParent === undefined) return;
     return eParent.removeChild(el);
   }
-  _.before = function (eNew, eRef) {
+  _.after = function (eNew, eRef) { return _.before(eNew, eRef, 1); }
+  _.before = function (eNew, eRef, after) {
+    if (_.isRange(eRef)) eRef = after ? eRef.lastNode : eRef.firstNode;
     if ((eRef = _.elCheck(eRef)) === undefined) return;
     var eParent = _.elCheck(eRef.parentNode);
     if (eParent === undefined) return;
     var ends = _.getFragRange(eNew);
-    eParent.insertBefore(eNew, eRef);
+    eParent.insertBefore(eNew, after ? eRef.nextSibling : eRef);
     if (!ends) return eNew;
     else return _.getRange(ends);
   }
