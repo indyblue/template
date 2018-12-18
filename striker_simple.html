@@ -102,9 +102,15 @@
 			data.dir[0].dir = [{ key: 'asdf' }];
 			//data.q.nums.splice(2, 1);
 			data.q.nums.splice(2, 0, 7);
-			var t = data.ph.splice(3, 1);
-			console.log(3, 4, JSON.stringify(t));
-			data.ph.splice(4, 1, t[0]);
+			var t = data.ph = [
+				{ id: 1, p: '317', n: '123-4567' },
+				{ id: 7, p: '317', n: '123-4563' },
+				{ id: 2, p: '317', n: '123-4568' },
+				{ id: 6, p: '317', n: '123-4562' },
+				{ id: 3, p: '317', n: '123-4569' },
+				{ id: 5, p: '317', n: '123-4561' },
+				{ id: 4, p: '317', n: '123-4560' },
+			];
 			data.dir.splice(2, 1);
 			data.dir.splice(2, 0, { key: 'file5', dir: [{ key: 'asdf1' }, { key: 'qwer2' }] });
 			data.nameColor = 'red'; data.last = 'smith'; data.first = 'ron'; tmp.recalc();

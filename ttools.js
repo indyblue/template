@@ -8,37 +8,37 @@ var templarTools;
     for (var k in ref) if (k[0] !== '_') obj[k] = ref[k];
     obj._node = _.isText(node) ? node.parentElement : node;
     return obj;
-  }
+  };
   _.rapply = function (obj, ref) {
     if (!obj || !ref) return;
     for (var k in obj) if (k[0] === '$') ref[k] = obj[k];
-  }
+  };
 
-  _.isfn = function (val) { return typeof val === 'function'; }
-  _.isobj = function (val) { return typeof val === 'object'; }
-  _.isstr = function (val) { return typeof val === 'string'; }
-  _.isarr = function (val) { return typeof val !== 'undefined' && val instanceof Array; }
-  _.isElement = function (obj) { return obj instanceof Element; }
-  _.isText = function (obj) { return obj instanceof Text; }
-  _.isComment = function (obj) { return obj instanceof Comment; }
-  _.isDocFrag = function (obj) { return obj instanceof DocumentFragment; }
+  _.isfn = function (val) { return typeof val === 'function'; };
+  _.isobj = function (val) { return typeof val === 'object'; };
+  _.isstr = function (val) { return typeof val === 'string'; };
+  _.isarr = function (val) { return typeof val !== 'undefined' && val instanceof Array; };
+  _.isElement = function (obj) { return obj instanceof Element; };
+  _.isText = function (obj) { return obj instanceof Text; };
+  _.isComment = function (obj) { return obj instanceof Comment; };
+  _.isDocFrag = function (obj) { return obj instanceof DocumentFragment; };
   _.rxMatch = function (rx, str, i) {
     if (!(rx instanceof RegExp) || !rx.test(str)) return;
     return rx.exec(str)[i];
-  }
+  };
 
   _.isAttached = function (el) {
     if (el instanceof Attr && el.ownerElement) el = el.ownerElement;
     else if (_.isText(el) && el.parentElement) el = el.parentElement;
     return el.closest('body') ? true : false;
-  }
+  };
   _.isSingleTextChild = function (obj) {
     return _.isElement(obj) && obj.childNodes.length === 1 && _.isText(obj.firstChild);
-  }
+  };
   _.isNwText = function (obj) {
     return (_.isText(obj) && !_.isws(obj.wholeText));
-  }
-  _.isws = function (str) { return /^\s*$/.test(str); }
+  };
+  _.isws = function (str) { return /^\s*$/.test(str); };
 
   _.isolateText = function (obj) {
     if (!_.isNwText(obj)) return obj;
@@ -57,12 +57,12 @@ var templarTools;
       _.getRange(first, last).deleteContents();
       return span;
     }
-  }
+  };
   _.getFragRange = function (el) {
     if (!_.isDocFrag(el)) return;
     return _.getRange(el);
-  }
-  _.isRange = function (el) { return el instanceof Range; }
+  };
+  _.isRange = function (el) { return el instanceof Range; };
   _.getRange = function (first, last) {
     if (!first) return;
     if (_.isDocFrag(first)) { last = first.lastChild; first = first.firstChild; }
@@ -77,37 +77,39 @@ var templarTools;
       rng.setStartBefore(first); rng.setEndAfter(last); return rng;
     })();
     return rng;
-  }
+  };
   _.elRemove = function (el) {
     if (_.isRange(el) && el.resetBounds) return el.resetBounds().extractContents();
     if ((el = _.elCheck(el)) === undefined) return;
     var eParent = _.elCheck(el.parentNode);
     if (eParent === undefined) return;
     return eParent.removeChild(el);
-  }
-  _.after = function (eNew, eRef) { return _.before(eNew, eRef, 1); }
+  };
+  _.after = function (eNew, eRef) { return _.before(eNew, eRef, 1); };
   _.before = function (eNew, eRef, after) {
     if (_.isRange(eRef)) eRef = after ? eRef.lastNode : eRef.firstNode;
     if ((eRef = _.elCheck(eRef)) === undefined) return;
     var eParent = _.elCheck(eRef.parentNode);
     if (eParent === undefined) return;
+    if (_.isRange(eNew)) eNew = eNew.resetBounds().extractContents();
     var ends = _.getFragRange(eNew);
     eParent.insertBefore(eNew, after ? eRef.nextSibling : eRef);
     if (!ends) return eNew;
     else return _.getRange(ends);
-  }
+  };
   _.append = function (eNew, ePar) {
     if ((ePar = _.elCheck(ePar)) === undefined) return;
+    if (_.isRange(eNew)) eNew = eNew.resetBounds().extractContents();
     var ends = _.getFragRange(eNew);
     ePar.appendChild(eNew);
     if (!ends) return eNew;
     else return _.getRange(ends);
-  }
+  };
   _.elHasAttribute = function (obj, name) {
     if (!_.isElement(obj)) return false;
     if (!_.isfn(obj.hasAttribute)) return false;
     return obj.hasAttribute(name);
-  }
+  };
   _.elCheck = function (el) {
     if (!el) return undefined;
     if (_.isstr(el)) el = document.querySelector(el);
@@ -115,11 +117,11 @@ var templarTools;
       return undefined;
     if (el.content) el = el.content;
     return el;
-  }
+  };
   _.removeParent = function (el) {
     var rng = _.getRange(el.firstChild, el.lastChild);
     return _.elRemove(rng);
-  }
+  };
   _.nodePath = function (el) {
     var retval = [];
     while (el) {
@@ -127,7 +129,7 @@ var templarTools;
       el = el.parentNode;
     }
     return retval.join('->');
-  }
+  };
 
 })();
 

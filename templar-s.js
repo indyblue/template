@@ -245,14 +245,9 @@ var Templar;
       this.rptList.forEach(function (obj, spath, el) {
         var arr = curlyPat.eval(spath, obj.ctx);
         if (_.isarr(arr)) {
-          var cnt = [0, 0, 0];
-          // if (arr.length !== obj.arr.length)
-          //   console.log('*****recalc RPT', spath, el, obj, arr);
-          cnt[0] += domMon.arrayRemove(arr, obj.arr, obj.key, 'value');
-          cnt[1] += domMon.arrayAdd(arr, obj.arr, obj.key, 'value', obj.ctx, el);
-          cnt[2] += domMon.arrayOrder(arr, obj.arr, obj.key, 'value');
-          if (cnt[0] + cnt[1] + cnt[2])
-            console.log('*****recalc RECAP', JSON.stringify(cnt), spath, el, obj, arr);
+          domMon.arrayRemove(arr, obj.arr, obj.key, 'value');
+          domMon.arrayAdd(arr, obj.arr, obj.key, 'value', obj.ctx, el);
+          domMon.arrayOrder(arr, obj.arr, obj.key, 'value', el);
         }
       });
     };
@@ -297,19 +292,19 @@ var Templar;
       }
       return cnt;
     };
-    domMon.arrayOrder = function (na, oa, nk, ok) {
-      var cnt = 0;
-      if (!nk) return cnt;
-      var oak = domMon.map(oa, ok, true);
-      var nak = domMon.map(na, nk);
-      for (var i = 0; i < na.length; i++) {
-        var oi = oak[nak[i]];
-        if (oi != i) {
-          console.log('move el', nak[i], 'from', oi, 'to', i);
-          cnt++;
-        }
+    domMon.arrayOrder = function (na, oa, nk, ok, el) {
+      var c = domMon.cleanKey, m = domMon.map, off = 0, offr = {};
+      if (!nk || na.length === 0) return;
+      var nak = m(na, nk, true);
+      var opre = m(oa, ok).join(' ');
+      oa.sort(function (a, b) { return nak[c(a[ok])] - nak[c(b[ok])]; });
+      var opost = m(oa, ok).join(' ');
+      if (opre !== opost) {
+        console.log('reorder', opre, '-->', opost);
+        var frag = _.removeParent(el);
+        for (var i = 0; i < oa.length; i++) { _.append(oa[i].el, frag) };
+        _.append(frag, el);
       }
-      return cnt;
     };
 
     domMon.map = function (arr, key, makeObject) {
