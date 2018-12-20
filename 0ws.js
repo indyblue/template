@@ -7,6 +7,7 @@ const t = {};
 const defs = {
 	path: process.cwd(),
 	port: 8080,
+	host: '127.0.0.1',
 	handlers: []
 };
 
@@ -15,7 +16,7 @@ t.new = (opts) => {
 	const that = Object.assign({}, defs, opts);
 	that.server = http.createServer((rq, rs) => requestHandler(that, handlers, rq, rs));
 	that.start = () => new Promise((resolve, reject) => {
-		that.server.listen(that.port, (err) => {
+		that.server.listen(that.port, that.host, (err) => {
 			if (err) {
 				console.log('something bad happened', err);
 				return reject(err);
@@ -32,7 +33,7 @@ t.new = (opts) => {
 		handlers.splice(0, handlers.length);
 		return that;
 	}
-	that.server.on('upgrade', handleWS);
+	makeSocket(that);
 	return that;
 }
 
@@ -125,66 +126,37 @@ function $stat(fn) {
 function $join(a, b) { return $path.posix.normalize($path.posix.join(a, b)); }
 
 /******************************************************************************/
-function handleWS(request, socket, buf) {
-	var key = getHeader(request, 'Sec-WebSocket-Key');
-	socket.write(wsUpgrade(key));
-	var lframe = null;
-	socket.on('data', function (buf) {
-		let frame = wsFrame(buf, lframe);
-		if (!frame) return;
-		else if (frame.opcode === 9) console.log('ping');
-		else if (!frame.fin) lframe = frame;
-		else lframe = null;
-		//console.log('partial', frame.fin, frame.opcode, typeof frame.data, frame.data.length);
-		//else console.log('finished', frame.fin, frame.opcode, typeof frame.data, frame.data.length);
-	});
-}
-function getHeader(req, key) {
-	var keyl = key.toLowerCase()
-	for (var k in req.headers) if (k.toLowerCase() === keyl) return req.headers[k];
-	return '';
-}
-function wsUpgrade(key) {
-	var magic = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
-	var shasum = crypto.createHash('sha1');
-	shasum.update(key + magic);
-	var akey = shasum.digest('base64');
-	var resp = ['HTTP/1.1 101 Switching Protocols',
-		'Upgrade: websocket',
-		'Connection: Upgrade',
-		'Sec-WebSocket-Accept: ' + akey, '', ''].join('\r\n');
-	return resp;
-};
-function wsFrame(buf, prev) {
-	var fin = buf.readUInt8(0) >> 7;
-	var opcode = buf.readUInt8(0) & 15; //0=cont, 1=text, 2=binary
-	var cont = opcode === 0;
-	// if (opcode === 9) {
-	// 	buf.writeUInt8(fin << 7 & 0xA);
-	// 	return 0xA;
-	if (cont && prev && prev.opcode) opcode = prev.opcode;
-	var mask = buf.readUInt8(1) >> 7, bmask;
-	var len = buf.readUInt8(1) & 127;
-	var i = 2;
-	if (len === 126) { len = buf.readUInt16BE(i); i += 2; }
-	else if (len === 127) {
-		len = (buf.readUInt32BE(i) << 32) + buf.readUInt32BE(6);
-		i += 8;
+function makeSocket(that) {
+	try {
+		var WebSocketServer = require('websocket').server;
+		var jh = require('./json_websocket');
+		if (that.wst) jh.addCbJson(/.*/i, function (p, e) {
+			console.log('json msg', e, p);
+			jh.sendJson('ack', { txt: 'message received', obj: p }, this);
+		});
+		that.wsock = new WebSocketServer({
+			httpServer: that.server,
+			//autoAcceptConnections: false,
+			maxReceivedFrameSize: 1 << 20,
+			maxReceivedMessageSize: 1 << 23,
+		});
+		that.wsock.on('request', function (request) {
+			var ws = request.accept(null, request.origin);
+			jh.addConn(ws);
+			console.log((new Date()) + ' Connection accepted.', request.origin);
+			ws.on('message', function (event) {
+				if (event.type === 'utf8') event.data = event.utf8Data;
+				else if (event.type === 'binary') event.data = event.binaryData;
+				jh.ondata.bind(this)(event);
+			});
+			ws.on('close', function (reasonCode, description) {
+				jh.remConn(ws);
+				console.log((new Date()) + ' Peer ' + ws.remoteAddress + ' disconnected.');
+			});
+		});
+	} catch (ex) {
+		console.warn('websockets not enabled');
 	}
-	if (mask) { bmask = buf.slice(i, i + 4); i += 4; }
-	data = buf.slice(i, i + len);
-	if (mask) for (var j = 0; j < data.length; j++)
-		data[j] = data[j] ^ bmask[j % 4];
-	if (opcode === 1) data = data.toString('utf8');
-	// todo: handle fragmentation
-	console.log(fin, cont, opcode, mask, len, typeof data, data.length,
-		data.length < 100 ? data : '');
-	if (opcode > 2 && opcode !== 9) return;
-	if (prev && cont) {
-		prev.fin = fin;
-		prev.data += data;
-		return prev;
-	} else return { fin, opcode, data };
 }
 
 function handleES(request, response) {
@@ -209,6 +181,6 @@ function fmtEsMsg(event, data) {
 	return output;
 }
 
-if (module.parent == null) t.new().addHandler(true, t.files).start();
+if (module.parent == null) t.new({ wst: true }).addHandler(true, t.files).start();
 else module.exports = t;
 

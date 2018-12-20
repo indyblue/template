@@ -8,6 +8,7 @@
 	<script type="text/javascript" src='poly-map.js'></script>
 	<script type="text/javascript" src='ttools.js'></script>
 	<script type="text/javascript" src='templar-s.js'></script>
+	<script type="text/javascript" src='json_websocket.js'></script>
 	<style>
 		.red {
 			background-color: red;
@@ -122,18 +123,24 @@
 	</script>
 	<script>
 		'use strict';
-		console.log('ws://' + window.location.host + '/');
-		var ws = new WebSocket('ws://' + window.location.host + '/');
-		ws.onopen = function () {
-			ws.onmessage = function (event) {
-				console.log(event);
+		(function () {
+			var jh = window.jsonWsHandler;
+			jh.addCbJson(/.*/i, function(p,e){
+				console.log(e, p);
+			});
+			console.log('ws://' + window.location.host + '/');
+			var ws = new WebSocket('ws://' + window.location.host + '/');
+			ws.onopen = function () {
+				jh.addConn(ws);
+				ws.onmessage = jh.ondata;
+				jh.sendJson('asdf', { a: 1, b: 2 });
+				var data = JSON.stringify({
+					type: 'test',
+					payload: 'hello world '//.repeat(4000)
+				})
 			};
-			ws.send(JSON.stringify({
-				type: 'asdf',
-				payload: 'hello world '.repeat(50000)
-			}));
-		};
-
+			ws.onclose = function () { jh.remConn(ws); };
+		})();
 	</script>
 </body>
 
