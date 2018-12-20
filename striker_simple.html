@@ -120,7 +120,21 @@
 		/* test recalc:
 		*/
 	</script>
+	<script>
+		'use strict';
+		console.log('ws://' + window.location.host + '/');
+		var ws = new WebSocket('ws://' + window.location.host + '/');
+		ws.onopen = function () {
+			ws.onmessage = function (event) {
+				console.log(event);
+			};
+			ws.send(JSON.stringify({
+				type: 'asdf',
+				payload: 'hello world '.repeat(50000)
+			}));
+		};
 
+	</script>
 </body>
 
 </html>

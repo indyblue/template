@@ -32,6 +32,7 @@ t.new = (opts) => {
 		handlers.splice(0, handlers.length);
 		return that;
 	}
+	that.server.on('upgrade', handleWS);
 	return that;
 }
 
@@ -124,12 +125,26 @@ function $stat(fn) {
 function $join(a, b) { return $path.posix.normalize($path.posix.join(a, b)); }
 
 /******************************************************************************/
-t.webSocket = app => {
-	app.server.on('upgrade', handleWS);
-};
-
 function handleWS(request, socket, buf) {
 	var key = getHeader(request, 'Sec-WebSocket-Key');
+	socket.write(wsUpgrade(key));
+	var lframe = null;
+	socket.on('data', function (buf) {
+		let frame = wsFrame(buf, lframe);
+		if (!frame) return;
+		else if (frame.opcode === 9) console.log('ping');
+		else if (!frame.fin) lframe = frame;
+		else lframe = null;
+		//console.log('partial', frame.fin, frame.opcode, typeof frame.data, frame.data.length);
+		//else console.log('finished', frame.fin, frame.opcode, typeof frame.data, frame.data.length);
+	});
+}
+function getHeader(req, key) {
+	var keyl = key.toLowerCase()
+	for (var k in req.headers) if (k.toLowerCase() === keyl) return req.headers[k];
+	return '';
+}
+function wsUpgrade(key) {
 	var magic = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 	var shasum = crypto.createHash('sha1');
 	shasum.update(key + magic);
@@ -138,33 +153,38 @@ function handleWS(request, socket, buf) {
 		'Upgrade: websocket',
 		'Connection: Upgrade',
 		'Sec-WebSocket-Accept: ' + akey, '', ''].join('\r\n');
-	console.log(key, resp);
-	socket.write(resp);
-	var inbuff = '';
-	socket.on('data', function (buf) {
-		var fin = buf.readUInt8(0) >> 7;
-		var opcode = buf.readUInt8(0) & 15; //0=cont, 1=text, 2=binary
-		var mask = buf.readUInt8(1) >> 7, bmask;
-		var len = buf.readUInt8(1) & 127;
-		var i = 2;
-		if (len === 126) { len = buf.readUInt16BE(i); i += 2; }
-		else if (len === 127) {
-			len = (buf.readUInt32BE(i) << 32) + buf.readUInt32BE(6);
-			i += 8;
-		}
-		if (mask) { bmask = buf.slice(i, i + 4); i += 4; }
-		data = buf.slice(i, i + len);
-		if (mask) for (var j = 0; j < data.length; j++)
-			data[j] = data[j] ^ bmask[j % 4];
-		if (opcode === 1) data = data.toString('utf8');
-		// todo: handle fragmentation
-		console.log(fin, opcode, mask, len, data);
-	})
-}
-function getHeader(req, key) {
-	var keyl = key.toLowerCase()
-	for (var k in req.headers) if (k.toLowerCase() === keyl) return req.headers[k];
-	return '';
+	return resp;
+};
+function wsFrame(buf, prev) {
+	var fin = buf.readUInt8(0) >> 7;
+	var opcode = buf.readUInt8(0) & 15; //0=cont, 1=text, 2=binary
+	var cont = opcode === 0;
+	// if (opcode === 9) {
+	// 	buf.writeUInt8(fin << 7 & 0xA);
+	// 	return 0xA;
+	if (cont && prev && prev.opcode) opcode = prev.opcode;
+	var mask = buf.readUInt8(1) >> 7, bmask;
+	var len = buf.readUInt8(1) & 127;
+	var i = 2;
+	if (len === 126) { len = buf.readUInt16BE(i); i += 2; }
+	else if (len === 127) {
+		len = (buf.readUInt32BE(i) << 32) + buf.readUInt32BE(6);
+		i += 8;
+	}
+	if (mask) { bmask = buf.slice(i, i + 4); i += 4; }
+	data = buf.slice(i, i + len);
+	if (mask) for (var j = 0; j < data.length; j++)
+		data[j] = data[j] ^ bmask[j % 4];
+	if (opcode === 1) data = data.toString('utf8');
+	// todo: handle fragmentation
+	console.log(fin, cont, opcode, mask, len, typeof data, data.length,
+		data.length < 100 ? data : '');
+	if (opcode > 2 && opcode !== 9) return;
+	if (prev && cont) {
+		prev.fin = fin;
+		prev.data += data;
+		return prev;
+	} else return { fin, opcode, data };
 }
 
 function handleES(request, response) {
