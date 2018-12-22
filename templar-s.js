@@ -113,9 +113,11 @@ var Templar;
     rx: /{{\s*(.+?)\s*}}/ig,
     cb: function (ctx, name, all, spath) {
       var ist = this, path = curlyPat.expand(spath, ctx),
-        val = curlyPat.eval.bind(ist)(path, ctx);
+        val = curlyPat.eval.bind(ist)(path, ctx, true);
       val = curlyPat.event(path, val, ctx, name);
       if (val === null) val = all;
+      if (val instanceof Date) val = val.toString();
+      if (_.isobj(val) || _.isfn(val)) val = '';
       return val;
     },
     eventRx: /^on-?/i,
@@ -132,7 +134,8 @@ var Templar;
       }
       if (ename) {
         if (ctx.debug & 8) console.log('bind', ename, e.nodeName);
-        e.addEventListener(ename, fn.bind(e, ctx, path));
+        e.addEventListener(ename, fn.bind(e, ctx, path,
+          function (p) { return curlyPat.eval(p, ctx); }));
       }
       return val;
     },
@@ -163,9 +166,9 @@ var Templar;
       if (join === true) return curlyPat.join(path);
       return path;
     },
-    eval: function (path, ctx) {
+    eval: function (path, ctx, strict) {
       if (_.isstr(path)) path = curlyPat.expand(path, ctx);
-      var o = ctx, p = path.slice(), key, spath = curlyPat.join(path);
+      var o = ctx, p = path.slice(), key, spath = curlyPat.join(path), stale, po = o;
       while (key = p.shift()) {
         if (key in o) o = o[key];
         else if (domMon) o = domMon.arrayKey(o, key);
@@ -173,10 +176,27 @@ var Templar;
           if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
           o = ''; break;
         }
+        stale = (po === o); po = o;
       }
-      if (ctx.debug & 8) console.log('eval', spath, o);
-      if (this._domMon) this._domMon.patAdd(spath, o);
+      if (ctx.debug & 8) console.log('eval', spath, o, stale, strict);
+      if (strict && stale && _.isobj(o)) o = '';
+      if (ctx.ist._domMon) ctx.ist._domMon.patAdd(spath, o);
       return o;
+    }
+  };
+
+  var funcPat = {
+    rx: /{([?:]){\s*((?:\n|.)+?)\s*}}/ig,
+    cb: function (ctx, name, all, type, fnbody) {
+      var ist = this, e = ctx._node
+        , fnbody = type === ':' ? 'return ' + fnbody : fnbody
+        , fn = (new Function('ctx, dp, event', fnbody))
+          .bind(e, ctx, function (p) { return curlyPat.eval(p, ctx, true); });
+      if (/^on-?/i.test(name)) {
+        e.addEventListener(name.replace(/^on-?/i, ''), fn);
+        e.attributes.removeNamedItem(name); delete e[name];
+        return '';
+      } else return fn();
     }
   };
 
@@ -188,9 +208,16 @@ var Templar;
   };
   { // domMon static props
     var dmProt = domMon.prototype;
+    var lastRC = 0, pendRC = false;;
     dmProt.recalc = function (ctx) {
-      this.recalcPat(ctx);
-      this.recalcRpt(ctx);
+      if (!lastRC) {
+        this.recalcPat(ctx);
+        this.recalcRpt(ctx);
+        pendRC = false;
+        lastRC++;
+        var cb = this.recalc.bind(this, ctx);
+        setTimeout(function () { lastRC = 0; if (pendRC) cb(); }, 200);
+      } else pendRC = true;
     };
 
     dmProt.patStart = function (obj) { this.curpat = obj; };
@@ -199,6 +226,7 @@ var Templar;
       this.curpat = null;
     };
     dmProt.patAdd = function (spath, value) {
+      if (value instanceof Date) value = value.toString();
       if (!this.curpat || spath.indexOf('model') !== 0
         || value instanceof Object) return;
       if (!(spath in this.watchList))
@@ -371,7 +399,7 @@ var Templar;
     cb: function (mkey, value, e, ctx) {
       var elBody = _.elCheck(value);
       if (!elBody) console.warn('template', value, 'not found');
-      else ctx._elBody = elBody;
+      else ctx._elBody = elBody.cloneNode(true);
     }
   };
 
@@ -414,11 +442,6 @@ var Templar;
     }
   };
 
-  cls.defaultPatterns = [curlyPat];
+  cls.defaultPatterns = [curlyPat, funcPat];
   cls.defaultModules = [modelMod, tmplMod, rptMod];
-
-  if (typeof val !== 'undefined' && module && module.exports) {
-    Templar.webServer = require('./0ws');
-    module.exports = Templar;
-  }
 })();

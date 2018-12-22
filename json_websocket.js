@@ -6,9 +6,9 @@
           var obj = JSON.parse(event.data);
           for (var i = 0; i < jh.cbJson.length; i++) {
             var h = jh.cbJson[i], m = false;
-            if (!h.type) m = true;
-            if (h.type === obj.type) m = true;
-            else if (h.type instanceof RegExp && h.type.test(obj.type)) m = true;
+            if (!h.event) m = true;
+            if (h.event === obj.event) m = true;
+            else if (h.event instanceof RegExp && h.event.test(obj.event)) m = true;
             if (m) h.cb.bind(this)(obj.payload, obj.event, event);
           }
         } catch (ex) {
@@ -20,9 +20,11 @@
     cbJson: [],
     addCbJson: function (event, cb) {
       jh.cbJson.push({ event: event, cb: cb });
+      return jh;
     },
     cbText: null,
     cbBinary: null,
+    cbConn: null,
     sendJson: function (event, payload, ws) {
       var conns = jh.connections;
       if (ws) conns = [ws];
@@ -32,6 +34,7 @@
     },
     addConn: function (ws) {
       if (jh.connections.indexOf(ws) === -1) jh.connections.push(ws);
+      if (jh.cbConn) jh.cbConn(ws);
     },
     remConn: function (ws) {
       var i = jh.connections.indexOf(ws);

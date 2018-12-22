@@ -98,8 +98,8 @@ function res404(req, res) {
 }
 /******************************************************************************/
 
-t.files = (req, res, next) => {
-	let dirname = req.dirname;
+const files = dirname => (req, res, next) => {
+	if (!dirname) dirname = req.dirname;
 	let url = req.url;
 	fpath = $path.join(dirname, url);
 	fstat = $stat(fpath);
@@ -108,6 +108,8 @@ t.files = (req, res, next) => {
 	else if (fstat.isDirectory()) handleDir(url, res);
 	else next();
 };
+t.files = files();
+t.modFiles = files(__dirname);
 function handleDir(url, res) {
 	res.write(`<html><head></head><body><h3>Directory listing of '${url}'</h3>`);
 	for (let i of fs.readdirSync(fpath)) res.write(
@@ -129,7 +131,7 @@ function $join(a, b) { return $path.posix.normalize($path.posix.join(a, b)); }
 function makeSocket(that) {
 	try {
 		var WebSocketServer = require('websocket').server;
-		var jh = require('./json_websocket');
+		var jh = that.jh = require('./json_websocket');
 		if (that.wst) jh.addCbJson(/.*/i, function (p, e) {
 			console.log('json msg', e, p);
 			jh.sendJson('ack', { txt: 'message received', obj: p }, this);

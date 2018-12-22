@@ -1,7 +1,7 @@
 {
   "name": "template.das",
   "version": "1.0.0",
-  "main": "striker.js",
+  "main": "0ws.js",
   "dependencies": {
     "websocket": "^1.0.28"
   },
