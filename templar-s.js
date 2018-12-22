@@ -61,7 +61,7 @@ var Templar;
         ist._patLoop(e, 'nodeValue', ctx, '', true);
       }
 
-      if (e.attributes) for (var i = 0; i < e.attributes.length; i++) {
+      if (e.attributes) for (var i = e.attributes.length - 1; i >= 0; i--) {
         var a = e.attributes[i];
         if (ctx.debug & 4) console.log('attr', a.name, a.value);
         ist._patLoop(a, 'value', ctx, a.name);
@@ -110,10 +110,10 @@ var Templar;
   /****************************************************************************/
   // pattern/module functions
   var curlyPat = {
-    rx: /{{\s*(.+?)\s*}}/ig,
-    cb: function (ctx, name, all, spath) {
+    rx: /{{\s*(.+?)\s*}(!?)}/ig,
+    cb: function (ctx, name, all, spath, always) {
       var ist = this, path = curlyPat.expand(spath, ctx),
-        val = curlyPat.eval.bind(ist)(path, ctx, true);
+        val = curlyPat.eval.bind(ist)(path, ctx, always);
       val = curlyPat.event(path, val, ctx, name);
       if (val === null) val = all;
       if (val instanceof Date) val = val.toString();
@@ -166,32 +166,31 @@ var Templar;
       if (join === true) return curlyPat.join(path);
       return path;
     },
-    eval: function (path, ctx, strict) {
+    eval: function (path, ctx, always) {
       if (_.isstr(path)) path = curlyPat.expand(path, ctx);
-      var o = ctx, p = path.slice(), key, spath = curlyPat.join(path), stale, po = o;
+      var o = ctx, p = path.slice(), key, spath = curlyPat.join(path);
       while (key = p.shift()) {
         if (key in o) o = o[key];
-        else if (domMon) o = domMon.arrayKey(o, key);
+        else if (domMon && domMon.isStrongKey(o, key)) o = domMon.arrayKey(o, key);
+        else o = undefined;
         if (typeof o === 'undefined') {
           if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
           o = ''; break;
         }
-        stale = (po === o); po = o;
       }
       if (ctx.debug & 8) console.log('eval', spath, o, stale, strict);
-      if (strict && stale && _.isobj(o)) o = '';
-      if (ctx.ist._domMon) ctx.ist._domMon.patAdd(spath, o);
+      if (ctx.ist._domMon) ctx.ist._domMon.patAdd(spath, o, always);
       return o;
     }
   };
 
   var funcPat = {
-    rx: /{([?:]){\s*((?:\n|.)+?)\s*}}/ig,
-    cb: function (ctx, name, all, type, fnbody) {
+    rx: /{([?:]){\s*((?:\n|.)+?)\s*}(!?)}/ig,
+    cb: function (ctx, name, all, type, fnbody, always) {
       var ist = this, e = ctx._node
         , fnbody = type === ':' ? 'return ' + fnbody : fnbody
-        , fn = (new Function('ctx, dp, event', fnbody))
-          .bind(e, ctx, function (p) { return curlyPat.eval(p, ctx, true); });
+        , fn = (new Function('ctx, qq, event', fnbody))
+          .bind(e, ctx, function (p) { return curlyPat.eval(p, ctx, always); });
       if (/^on-?/i.test(name)) {
         e.addEventListener(name.replace(/^on-?/i, ''), fn);
         e.attributes.removeNamedItem(name); delete e[name];
@@ -208,7 +207,7 @@ var Templar;
   };
   { // domMon static props
     var dmProt = domMon.prototype;
-    var lastRC = 0, pendRC = false;;
+    var lastRC = 0, pendRC = false;
     dmProt.recalc = function (ctx) {
       if (!lastRC) {
         this.recalcPat(ctx);
@@ -225,19 +224,26 @@ var Templar;
       if (!this.curpat) return;
       this.curpat = null;
     };
-    dmProt.patAdd = function (spath, value) {
-      if (value instanceof Date) value = value.toString();
-      if (!this.curpat || spath.indexOf('model') !== 0
+    dmProt.patAdd = function (spath, value, always) {
+      var that = this;
+      value = domMon.cleanValue(value);
+      if (!that.curpat || spath.indexOf('model') !== 0
         || value instanceof Object) return;
-      if (!(spath in this.watchList))
-        this.watchList[spath] = { value: value, objs: [] };
-      this.watchList[spath].objs.push(this.curpat);
+      spath = domMon.cleanPath(spath);
+      function padd(p) {
+        if (!(p in that.watchList))
+          that.watchList[p] = { value: value, objs: [] };
+        that.watchList[p].objs.push(that.curpat);
+      }
+      padd(spath);
+      if (always) padd('+++');
     };
     dmProt.recalcPat = function (ctx) {
       var objs = [];
       for (var key in this.watchList) {
         var watch = this.watchList[key], newval = curlyPat.eval(key, ctx);
-        if (watch.value !== newval) {
+        newval = domMon.cleanValue(newval);
+        if (key === '+++' || watch.value !== newval) {
           if (ctx.debug & 32) console.log('calc', watch.value === newval, key, watch.value, newval, watch.objs.length);
           for (var j = watch.objs.length - 1; j >= 0; j--) {
             var ref = watch.objs[j];
@@ -256,6 +262,7 @@ var Templar;
     };
 
     dmProt.rptStart = function (spath, el, ctx, key) {
+      spath = domMon.cleanPath(spath);
       if (ctx.debug & 32) console.log('rptStart', spath, el, ctx);
       if (!this.rptList.has(spath, el))
         this.rptList.set(spath, el, {
@@ -263,6 +270,7 @@ var Templar;
         });
     };
     dmProt.rptAdd = function (spath, el, item, i) {
+      spath = domMon.cleanPath(spath);
       if (ctx.debug & 32) console.log('rptAdd', spath, el, item);
       var obj = this.rptList.get(spath, el);
       if (typeof i === 'number' && i >= 0 && i < obj.arr.length)
@@ -348,9 +356,19 @@ var Templar;
     domMon.cleanKey = function (key) {
       if (key && _.isstr(key)) return key.replace(/\W+/g, '_');
       else return key;
-    }
+    };
+    domMon.cleanPath = function (spath) {
+      return spath.replace(/\.\d+=/g, '.=');
+    };
+    domMon.cleanValue = function (value) {
+      if (value instanceof Date) return value.getDate();
+      return value;
+    };
+    domMon.isStrongKey = function (obj, key) {
+      return _.isarr(obj) && key.indexOf('=') >= 0;
+    };
     domMon.arrayKey = function (obj, key) {
-      if (!_.isarr(obj) || key.indexOf('=') < 0) return obj;
+      if (!domMon.isStrongKey(obj, key)) return obj;
       var s = key.split('='), i = s[0], k = s[1], v = s[2] || '', o = obj;
       if (i === '' && v === '') return o;
       var c = domMon.cleanKey;
