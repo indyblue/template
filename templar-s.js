@@ -118,8 +118,8 @@ var Templar;
   var curlyPat = {
     rx: /{{\s*(.+?)\s*}(!?)}/ig,
     cb: function (ctx, name, all, spath, always) {
-      var ist = this, path = curlyPat.expand(spath, ctx),
-        val = curlyPat.eval.bind(ist)(path, ctx, always);
+      var path = curlyPat.expand(spath, ctx),
+        val = curlyPat.eval(path, ctx, undefined, always);
       val = curlyPat.event(path, val, ctx, name);
       if (val === null) val = all;
       if (val instanceof Date) val = val.toString();
@@ -141,7 +141,7 @@ var Templar;
       if (ename) {
         if (ctx.debug & 8) console.log('bind', ename, e.nodeName);
         e.addEventListener(ename, fn.bind(e, ctx, path,
-          function (p) { return curlyPat.eval(p, ctx); }));
+          function (p, v) { return curlyPat.eval(p, ctx, v); }));
       }
       return val;
     },
@@ -172,9 +172,10 @@ var Templar;
       if (join === true) return curlyPat.join(path);
       return path;
     },
-    eval: function (path, ctx, always) {
+    eval: function (path, ctx, setValue, always) {
       if (_.isstr(path)) path = curlyPat.expand(path, ctx);
-      var o = ctx, p = path.slice(), key, spath = curlyPat.join(path);
+      var o = ctx, p = path.slice(), key, spath = curlyPat.join(path)
+        , isset = !_.isnull(setValue), setKey = isset ? p.pop() : null;
       while (key = p.shift()) {
         if (_.in(key, o)) o = o[key];
         else if (domMon && domMon.isStrongKey(o, key)) o = domMon.arrayKey(o, key);
@@ -182,6 +183,13 @@ var Templar;
         if (typeof o === 'undefined') {
           if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
           o = ''; break;
+        }
+      }
+      if (isset) {
+        if (_.in(setKey, o)) { o = o[setKey] = setValue; }
+        else {
+          var k2 = curlyPat.isPtr(setKey, o, ctx, true);
+          if (_.in(k2, o)) { o = o[k2] = setValue; }
         }
       }
       if (ctx.debug & 8) console.log('eval', spath, o, stale, strict);
@@ -193,9 +201,11 @@ var Templar;
       var addr = key[0] === '@', tmp;
       key = key.substr(1);
       if (key[0] === '*') key = key.substr(1);
-      else if (addr && pr && pr.length === 0 && _.in(key, o)) return key;
+      else if (addr && (!pr || pr.length === 0) && _.in(key, o)) return key;
       function tryKey(k) {
-        if (_.in(k, ctx) && _.in(ctx[k], o)) {
+        if (pr === true && _.in(k, ctx)) {
+          return ctx[k];
+        } else if (_.in(k, ctx) && _.in(ctx[k], o)) {
           if (addr) return ctx[k];
           else return o[ctx[k]];
         } else if (_.in(k, ctx) && _.isfn(ctx[k])) {
@@ -214,7 +224,7 @@ var Templar;
       var ist = this, e = ctx._node
         , fnbody = type === ':' ? 'return ' + fnbody : fnbody
         , fn = (new Function('ctx, qq, event', fnbody))
-          .bind(e, ctx, function (p) { return curlyPat.eval(p, ctx, always); });
+          .bind(e, ctx, function (p, v) { return curlyPat.eval(p, ctx, v, always); });
       if (/^on-?/i.test(name)) {
         e.addEventListener(name.replace(/^on-?/i, ''), fn);
         e.attributes.removeNamedItem(name); delete e[name];
