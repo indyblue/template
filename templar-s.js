@@ -1,4 +1,9 @@
 /*
+attributes:
+  value-bind - add change event to value
+  (data-|x-)model-xxx - alias. specify a path, or defaults to last model (or root)
+  (data-|x-)(template|tmp) - value should resolve to an element to use as template
+  (data-|x-)repeat-xxx - repeat over array. specify array and model alias
 debug:
   1: node
   2: text
@@ -66,6 +71,7 @@ var Templar;
         if (ctx.debug & 4) console.log('attr', a.name, a.value);
         ist._patLoop(a, 'value', ctx, a.name);
         _moduleLoop(a.name, a.value, e, ctx);
+        if (a.name === 'checked' && a.value == 'false') { e[a.name] = false; }
       }
 
       if (_.isfn(ctx._handleChildren)) ctx._handleChildren(e, ctx);
@@ -170,9 +176,9 @@ var Templar;
       if (_.isstr(path)) path = curlyPat.expand(path, ctx);
       var o = ctx, p = path.slice(), key, spath = curlyPat.join(path);
       while (key = p.shift()) {
-        if (key in o) o = o[key];
+        if (_.in(key, o)) o = o[key];
         else if (domMon && domMon.isStrongKey(o, key)) o = domMon.arrayKey(o, key);
-        else o = undefined;
+        else o = curlyPat.isPtr(key, o, ctx, p, spath); // "fails" to undefined
         if (typeof o === 'undefined') {
           if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
           o = ''; break;
@@ -181,6 +187,24 @@ var Templar;
       if (ctx.debug & 8) console.log('eval', spath, o, stale, strict);
       if (ctx.ist._domMon) ctx.ist._domMon.patAdd(spath, o, always);
       return o;
+    },
+    isPtr: function (key, o, ctx, pr, spath) {
+      if ('@*'.indexOf(key[0]) < 0) return;
+      var addr = key[0] === '@', tmp;
+      key = key.substr(1);
+      if (key[0] === '*') key = key.substr(1);
+      else if (addr && pr && pr.length === 0 && _.in(key, o)) return key;
+      function tryKey(k) {
+        if (_.in(k, ctx) && _.in(ctx[k], o)) {
+          if (addr) return ctx[k];
+          else return o[ctx[k]];
+        } else if (_.in(k, ctx) && _.isfn(ctx[k])) {
+          return ctx[k](o, ctx, key, spath,
+            function (p) { return curlyPat.eval(p, ctx); });
+        }
+      }
+      if ((tmp = tryKey(key)) !== undefined) return tmp;
+      if ((tmp = tryKey('_' + key)) !== undefined) return tmp;
     }
   };
 
@@ -231,7 +255,7 @@ var Templar;
         || value instanceof Object) return;
       spath = domMon.cleanPath(spath);
       function padd(p) {
-        if (!(p in that.watchList))
+        if (!_.in(p, that.watchList))
           that.watchList[p] = { value: value, objs: [] };
         that.watchList[p].objs.push(that.curpat);
       }
@@ -296,7 +320,7 @@ var Templar;
       } else {
         var nak = domMon.map(na, nk, true);
         for (var i = oa.length - 1; i >= 0; i--) { //reverse order, removals
-          if (!(oa[i][ok] in nak)) { // if not in new keys, remove
+          if (!_.in(oa[i][ok], nak)) { // if not in new keys, remove
             var obj = oa.splice(i, 1)[0];
             _.elRemove(obj.el);
             cnt++;
@@ -317,8 +341,8 @@ var Templar;
         var oak = domMon.map(oa, ok, true);
         var nak = domMon.map(na, nk);
         for (var i = 0; i < na.length; i++) {
-          if (!(nak[i] in oak)) { // if not in old keys, add
-            var insert = (i in oa);
+          if (!_.in(nak[i], oak)) { // if not in old keys, add
+            var insert = _.in(i, oa);
             rptMod.cbChildItem(na, i, ctx, el);
             if (insert) _.before(ctx._rfrag, oa[i + 1].el);
             else _.append(ctx._rfrag, el);
@@ -372,9 +396,9 @@ var Templar;
       var s = key.split('='), i = s[0], k = s[1], v = s[2] || '', o = obj;
       if (i === '' && v === '') return o;
       var c = domMon.cleanKey;
-      if (i in o && (v === '' || (k in o[i] && c(o[i][k]) == c(v)))) return o[i];
+      if (_.in(i, o) && (v === '' || (_.in(k, o[i]) && c(o[i][k]) == c(v)))) return o[i];
       for (i = 0; i < o.length; i++) {
-        if ((k in o[i] && o[i][k] == v)) return o[i];
+        if (_.in(k, o[i]) && o[i][k] == v) return o[i];
       }
       return undefined;
     };
@@ -386,7 +410,7 @@ var Templar;
         path.push(key); key = i; weak = true;
       } else {
         var k = kv.key = key.split('=')[1], o = arr[i] || {};
-        if (k === '' || !(k in o) || !o[k]) {
+        if (k === '' || !_.in(k, o) || !o[k]) {
           key = i; weak = true;
         } else {
           var val = kv.value = domMon.cleanKey(o[k]);
@@ -401,7 +425,7 @@ var Templar;
   }
 
   var modelMod = {
-    rx: /^data-model-([a-z]\w*)$/i,
+    rx: _.rxAtt(/model-([a-z]\w*)$/i),
     cb: function (mkey, value, e, ctx) {
       var key = mkey[1];
       value = value || ctx.lastModel || 'model';
@@ -413,7 +437,7 @@ var Templar;
   };
 
   var tmplMod = {
-    rx: /^data-template$/i,
+    rx: _.rxAtt(/(?:template|tmp)$/i),
     cb: function (mkey, value, e, ctx) {
       var elBody = _.elCheck(value);
       if (!elBody) console.warn('template', value, 'not found');
@@ -421,8 +445,16 @@ var Templar;
     }
   };
 
+  var setMod = {
+    rx: _.rxAtt(/setc(u)?-([a-z]\w*)$/i),
+    cb: function (mkey, value, e, ctx) {
+      var u = mkey[1] === 'u' ? '_' : '';
+      ctx[u + mkey[2]] = value;
+    }
+  }
+
   var rptMod = {
-    rx: /^data-repeat-([a-z]\w*)$/i,
+    rx: _.rxAtt(/repeat-([a-z]\w*)$/i),
     cb: function (mkey, value, e, ctx) {
       ctx._rpath = modelMod.cb(mkey, value, e, ctx);
       ctx._rkey = curlyPat.expand(ctx._rpath, ctx, true);
@@ -447,7 +479,7 @@ var Templar;
     },
     cbChildItem: function (arr, i, ctx, el) {
       var ist = ctx.ist, ipath, kv;
-      if (!(i in arr)) return null;
+      if (!_.in(i, arr)) return null;
       if (domMon) ipath = domMon.arrayPath(ctx._rkey, arr, i, kv = {});
       else ipath = ctx._rkey + '.' + i;
       ctx[ctx._rpath] = ipath;
@@ -461,5 +493,5 @@ var Templar;
   };
 
   cls.defaultPatterns = [curlyPat, funcPat];
-  cls.defaultModules = [modelMod, tmplMod, rptMod];
+  cls.defaultModules = [modelMod, tmplMod, setMod, rptMod];
 })();

@@ -16,6 +16,7 @@ var templarTools;
 
   _.isfn = function (val) { return typeof val === 'function'; };
   _.isobj = function (val) { return typeof val === 'object'; };
+  _.in = function (key, obj) { return _.isobj(obj) && (key in obj); };
   _.isstr = function (val) { return typeof val === 'string'; };
   _.isarr = function (val) { return typeof val !== 'undefined' && val instanceof Array; };
   _.isElement = function (obj) { return obj instanceof Element; };
@@ -26,6 +27,7 @@ var templarTools;
     if (!(rx instanceof RegExp) || !rx.test(str)) return;
     return rx.exec(str)[i];
   };
+  _.rxAtt = function (rx) { return new RegExp('^(?:data-|x-)?' + rx.source, rx.flags); }
 
   _.isAttached = function (el) {
     if (el instanceof Attr && el.ownerElement) el = el.ownerElement;
