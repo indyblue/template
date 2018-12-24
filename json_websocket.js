@@ -2,8 +2,8 @@
   var jh = {
     ondata: function (event) {
       if (typeof event.data === 'string') {
-        try {
-          var obj = JSON.parse(event.data);
+        try { var obj = JSON.parse(event.data); } catch (ex) { }
+        if (obj) {
           for (var i = 0; i < jh.cbJson.length; i++) {
             var h = jh.cbJson[i], m = false;
             if (!h.event) m = true;
@@ -11,9 +11,8 @@
             else if (h.event instanceof RegExp && h.event.test(obj.event)) m = true;
             if (m) h.cb.bind(this)(obj.payload, obj.event, event);
           }
-        } catch (ex) {
-          if (jh.cbText) jh.cbText.bind(this)(event);
-        }
+        } else if (jh.cbText) jh.cbText.bind(this)(event);
+
       } else if (jh.cbBinary) jh.cbBinary.bind(this)(event);
     },
     connections: [],
