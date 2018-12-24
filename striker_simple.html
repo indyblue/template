@@ -19,23 +19,28 @@
 <body>
 	<template id='persons'>
 		<!-- test comment -->
-		<div style='background-color:{{model.nameColor}}'>{{ model.last }}, {{model.first}}</div>
+		<div style='background-color:{{model.nameColor}}'>{{ model.last }},
+			{{model.first}}</div>
 		<div data-repeat-n='model.q.nums' data-template='#formula'> </div>
 		<div data-repeat-d='model.ph.=id'>
-			<div><b>{{d.id}}</b> - number: +1-{{d.p}}-{{d.n}} ({{model.last}}) <input value-bind value='{{d.n}}' /></div>
+			<div><b>{{d.id}}</b> - number: +1-{{d.p}}-{{d.n}} ({{model.last}})
+				<input value-bind value='{{d.n}}' /></div>
 		</div>
 		<ul data-template='#dir' data-repeat-d='model.dir.=key'></ul>
 		<!-- test comment2 -->
 	</template>
 
 	<template id='formula'>
-		<div on-click='{{color}}' data-model-n>{{n}} {{model.first}} ({{model.q.nums.3}} to the {{n}}th power)</div>
+		<div on-click='{{color}}' data-model-n><u>{{n.*tf}}</u> <x>{{model.first}}
+			({{model.q.nums.3}} to the {{n}}th power)</x></div>
 	</template>
 
-	<template data-model-d id='dir'><li>
-		<span>{{d.key}}</span>
-		<ul data-template='#dir' data-repeat-d='d.dir.=key'></ul>
-	</li></template>
+	<template data-model-d id='dir'>
+		<li>
+			<span>{{d.key}}</span>
+			<ul data-template='#dir' data-repeat-d='d.dir.=key'></ul>
+		</li>
+	</template>
 
 	<script>
 		'use strict';
@@ -91,7 +96,8 @@
 			color: function (ctx, path) {
 				console.log('color-toggle', path, ctx);
 				this.classList.toggle('red');
-			}
+			},
+			tf: function (o, ctx) { return o + '-test'; },
 		};
 		var tmp = new Templar(document.body, '#persons', data, ctx);
 		tmp.exec();
@@ -125,7 +131,7 @@
 		'use strict';
 		(function () {
 			var jh = window.jsonWsHandler;
-			jh.addCbJson(/.*/i, function(p,e){
+			jh.addCbJson(/.*/i, function (p, e) {
 				console.log(e, p);
 			});
 			console.log('ws://' + window.location.host + '/');

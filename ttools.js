@@ -31,8 +31,10 @@ var templarTools;
   _.rxAtt = function (rx) { return new RegExp('^(?:data-|x-)?' + rx.source, rx.flags); }
 
   _.isAttached = function (el) {
-    if (el instanceof Attr && el.ownerElement) el = el.ownerElement;
-    else if (_.isText(el) && el.parentElement) el = el.parentElement;
+    if (el instanceof Attr) {
+      if (el.ownerElement) el = el.ownerElement;
+      else return false;
+    } else if (_.isText(el) && el.parentElement) el = el.parentElement;
     return el.closest('body') ? true : false;
   };
   _.isSingleTextChild = function (obj) {
