@@ -271,7 +271,7 @@ var Templar;
       var wl = this.watchList;
       for (var i = wl.length - 1; i >= 0; i--) {
         var oi = wl[i];
-        if (!_.isAttached(oi.robj)) { console.log('remove', oi); wl.splice(i, 1); continue; }
+        if (!_.isAttached(oi.robj)) { wl.splice(i, 1); continue; }
         var newval = oi.ctx.ist._patVal(oi.pattern, oi.ctx, oi.name);
         if (oi.value === newval) continue;
         oi.robj[oi.rkey] = oi.value = newval;
