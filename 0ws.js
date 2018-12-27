@@ -21,8 +21,8 @@ t.new = (opts) => {
 				console.log('something bad happened', err);
 				return reject(err);
 			}
-			console.log(`server is listening on ${that.port}, ${that.dirname}`);
-			resolve([that.port, that.path]);
+			console.log(`server is listening on ${that.port}, ${that.host}`);
+			resolve([that.port, that.host]);
 		});
 	});
 	that.addHandler = (filter, cb) => {
@@ -46,9 +46,9 @@ const requestHandler = (that, handlers, request, response) => {
 	for (let h of handlers) {
 		let urlMatch = meetsFilter(h.filter, request);
 		if (urlMatch && typeof h.cb === 'function') {
-			request.urlMatch = urlMatch;
 			pr = pr.then(() => new Promise((resolve, reject) => {
-				console.log(url, h.filter);
+				request.urlMatch = urlMatch;
+				console.log(url, h.filter, JSON.stringify(urlMatch));
 				h.cb(request, response, resolve, reject);
 			}));
 		};
@@ -84,7 +84,8 @@ function meetsFilter(filter, request) {
 function urlFilter(filter, url) {
 	const ftype = typeof filter, urllc = url.toLowerCase(),
 		url2 = url.replace(/^\//, ''), url2lc = urllc.replace(/^\//, '');
-	if (ftype === 'string') return urllc.startsWith(filter.toLowerCase()) || url2lc.startsWith(filter.toLowerCase());
+	if (ftype === 'string') return urllc.startsWith(filter.toLowerCase())
+		|| url2lc.startsWith(filter.toLowerCase());
 	else if (filter instanceof RegExp) return filter.exec(url) || filter.exec(url2) || false;
 	else return null;
 }
@@ -98,18 +99,18 @@ function res404(req, res) {
 }
 /******************************************************************************/
 
-const files = dirname => (req, res, next) => {
+const files = (dirname, prefix) => (req, res, next) => {
 	if (!dirname) dirname = req.dirname;
 	let url = req.url;
+	if (typeof prefix === 'number' && req.urlMatch instanceof Array) url = req.urlMatch[prefix];
 	fpath = $path.join(dirname, url);
 	fstat = $stat(fpath);
-
 	if (fstat.isFile()) fs.createReadStream(fpath).pipe(res);
 	else if (fstat.isDirectory()) handleDir(url, res);
 	else next();
 };
 t.files = files();
-t.modFiles = files(__dirname);
+t.modFiles = p => files(__dirname, p);
 function handleDir(url, res) {
 	res.write(`<html><head></head><body><h3>Directory listing of '${url}'</h3>`);
 	for (let i of fs.readdirSync(fpath)) res.write(
