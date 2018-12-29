@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title></title>
+	<!-- <script src="https://code.jquery.com/jquery-3.3.1.js"></script> -->
+	<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/rivets/0.9.6/rivets.bundled.min.js"></script> -->
+	<script type="text/javascript" src='poly-map.js'></script>
+	<script type="text/javascript" src='ttools.js'></script>
+	<script type="text/javascript" src='templar.js'></script>
+	<style>
+		.d,
+		.p {
+			background-color: red;
+			height: 50px;
+			width: 0;
+			margin-top: 10px;
+		}
+
+		div {
+			border: 1px solid black;
+			padding: 55px;
+		}
+	</style>
+</head>
+
+<body>
+	<template id='form-list'>
+		<divt x-tmp='#form' x-repeat-f='model.forms'></divt>
+	</template>
+	<template id='form'>
+		<div class='form' x-model-f>
+			<b>FORM:</b>
+			<b>{{f.name}}</b>
+			<divt x-tmp='#screen' x-repeat-s='f.pages'></divt>
+		</div>
+	</template>
+	<template id='screen'>
+		<div class='screen' x-model-s x-drop-q='s.questions'>
+			<b>SCREEN:</b>
+			<b>{{s.name}}</b>
+			<divt x-tmp='#question' x-repeat-q='s.questions.=id'></divt>
+		</div>
+	</template>
+	<template id='question'>
+		<div class='question' x-drag-q x-drop-q x-model-q>
+			<b>Q:</b>
+			<i>{{q.id}}</i> &nbsp;
+			<b>{{q.name}}</b> &nbsp;
+			<span>{{q.type}}</span>
+		</div>
+	</template>
+
+	<script>
+		const forms = [
+			{
+				name: 'Plaintiff Basic Info',
+				pages: [
+					{
+						questions: [
+							{
+								id: 1, name: 'First Name', type: 'TextArea',
+								validation: { minChars: 2, required: true }
+							}, {
+								id: 2, name: 'Middle Name', type: 'TextArea'
+							}, {
+								id: 3, name: 'Last Name', type: 'TextArea',
+								validation: { minChars: 2, required: true }
+							}, {
+								id: 4, name: 'Preferred Name', type: 'TextArea',
+							}, {
+								id: 5, name: 'Date of Birth', type: 'DatePicker',
+								validation: { required: true }
+							}, {
+								id: 6, name: 'Social Security Number', type: 'TextField',
+								validation: { required: true, minChars: 4 }
+							}, {
+								id: 7, name: 'Head of Household', type: 'Checkbox',
+							}, {
+								id: 8, name: 'Insured?', type: 'Checkbox',
+							}, {
+								id: 9, name: 'Name of Insurer', type: 'TextField',
+								show: { id: 8, value: true }
+							}
+						]
+					}, {
+						name: 'Contact Information',
+						questions: [
+							{
+								id: 11, name: 'Phone Number(s)', type: 'Phones',
+								// required?
+							}, {
+								id: 12, name: 'Additional Email', type: 'Email',
+							}, {
+								id: 13, name: 'Affected Property Address', type: 'Address',
+								validation: { required: true }
+								// we always want to ask this, don't we???
+							}, {
+								id: 14, name: 'Is your mailing address the same as your affected property address?',
+								type: 'Checkbox'
+							}, {
+								id: 15, name: 'Current Mailing Address', type: 'Address',
+								show: { id: 14, value: true }
+							},
+						]
+					}
+				]
+			}
+		], data = { forms }, ctx = {
+			drag: function (ctx, path, qq, ev) {
+				console.log('drag', ctx.q);
+				ev.dataTransfer.setData("text", path);
+			},
+			dragOver: function (ctx, path, qq, ev) { ev.preventDefault(); },
+			drop: function (ctx, path, qq, ev) {
+				console.log('drop', ctx[ctx.lastModel], ev.dataTransfer.getData('text'), ev);
+			},
+		};
+		var tmp = new Templar(document.body, '#form-list', data, ctx);
+		tmp.exec();
+	</script>
+</body>
+
+</html>
