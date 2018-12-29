@@ -82,8 +82,8 @@ debug flags: (ctx.debug, bitfield, so add together
 * 64: drag&drop
 
 specs: (at last count)
-* 25.6kB total
-* 13.9kB minified
+* 25.4kB total
+* 13.8kB minified
 * 5.2kB min/gz
 
 - originally based on the concept of stamp by J Gregorio https://github.com/jcgregorio/stamp

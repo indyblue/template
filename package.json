@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "node 0ws.js",
-    "min": "uglifyjs poly-map.js ttools.js templar.js -c -m -o templar.min.js",
+    "min": "uglifyjs poly-map.js ttools.js templar.js -c -m -o templar.min.js && gzip -c templar.min.js > templar.min.js.gz",
     "build": "babel stamp2.js -o stamp2_ie.js --presets env"
   },
   "repository": {
