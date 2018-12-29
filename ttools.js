@@ -16,7 +16,7 @@ var templarTools;
 
   _.isfn = function (val) { return typeof val === 'function'; };
   _.isobj = function (val) { return typeof val === 'object'; };
-  _.isnull = function (val) { return ['null', 'undefined'].indexOf(typeof val) >= 0; };
+  _.isnull = function (val) { return val === null || val === undefined; };
   _.in = function (key, obj) { return _.isobj(obj) && (key in obj); };
   _.isstr = function (val) { return typeof val === 'string'; };
   _.isarr = function (val) { return typeof val !== 'undefined' && val instanceof Array; };

@@ -26,9 +26,17 @@ tmp.recalc(); // refresh generated HTML, only changing DOM when necessary.
 
 attributes:
 * value-bind - add change event to value
-* (data-|x-)model-xxx - alias. specify a path, or defaults to last model (or root)
-* (data-|x-)(template|tmp) - value should resolve to an element to use as template
-* (data-|x-)repeat-xxx - repeat over array. specify array and model alias
+* following attributes can either have no prefix, or data- or x- prefix
+  * model-xxx - alias. specify a path, or defaults to last model (or root)
+  * (template|tmp) - value should resolve to an element to use as template
+  * repeat-xxx - repeat over array. specify array and model alias
+  * drag(-x) - adds drag for element (x is "scope," should match drop)
+  * drop(i)(-x) - adds drop for element
+    * only for arrays, 
+    * i = item in array (drop will be before or after)
+    * without i, expects target to be array, will either push or unshift
+    * scope is optional. if blank, will match all drags as above
+
 
 patterns:
 * double curlies: {{ ... }}
@@ -71,8 +79,7 @@ debug flags: (ctx.debug, bitfield, so add together
 * 8: eval
 * 16: repeat
 * 32: domMon
-
-
+* 64: drag&drop
 
 specs: (at last count)
 * 25.6kB total
