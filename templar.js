@@ -173,11 +173,11 @@ var Templar;
       if (!_.isarr(stack)) stack = [];
       while (key = p.shift()) {
         kv = pat.checkKey(o, key, ctx, p); stack.unshift(kv);
-        o = pat.kvSet(o, kv, ctx, key, p, spath);
-        if (typeof o === 'undefined') {
+        if (typeof o === 'undefined' && !kv.fn && !kv.addr) {
           if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
           o = ''; break;
         }
+        o = pat.kvSet(o, kv, ctx, key, p, spath);
       }
       if (retKV) return kv;
       if (!_.isnull(setValue) && kv && _.isobj(kv.o)) o = kv.o[kv.key] = setValue;
@@ -195,6 +195,7 @@ var Templar;
     checkKey: function (o, key, ctx, p) {
       var retval = { o: o, key: key, in: false };
       if (_.in(key, o)) retval = { o: o, key: key, in: true };
+      else if (_.in(key, pat.ops)) retval = { o: o, fn: pat.ops[key] };
       else if (domMon && domMon.isStrongKey(o, key))
         retval = domMon.arrayIndex(o, key) || retval;
       else retval = pat.isPtr(o, key, ctx, p) || retval;
@@ -215,6 +216,14 @@ var Templar;
       if ((tmp = tryKey(key)) !== undefined) return tmp;
       if ((tmp = tryKey('_' + key)) !== undefined) return tmp;
       return;
+    },
+    ops: {
+      '==': function (o, ctx, key, p) { return o && o.toString() == p.shift(); },
+      '>': function (o, ctx, key, p) { return o && o.toString() > p.shift(); },
+      '>=': function (o, ctx, key, p) { return o && o.toString() >= p.shift(); },
+      '<': function (o, ctx, key, p) { return o && o.toString() < p.shift(); },
+      '<=': function (o, ctx, key, p) { return o && o.toString() <= p.shift(); },
+      '?': function (o, ctx, key, p) { var ie = p.shift().split(':'); return o ? ie[0] : ie[1]; }
     }
   };
 
@@ -363,7 +372,7 @@ var Templar;
       return spath.replace(/\.\d+=/g, '.=');
     };
     domMon.isStrongKey = function (obj, key) {
-      return _.isarr(obj) && key.indexOf('=') >= 0;
+      return _.isarr(obj) && /=/.test(key) && key !== '==';
     };
     domMon.arrayIndex = function (obj, key) {
       var s = key.split('='), i = s[0], k = s[1], v = s[2] || '', o = obj;

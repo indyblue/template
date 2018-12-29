@@ -52,14 +52,14 @@
 
 	<template id='question'>
 		<div class='question' x-drag-q x-dropi-q x-model-q>
-			<div class="disp {:{ qq('q.edit') ? 'hide' :'' }}">
+			<div class="disp {{q.edit.?.hide:}}">
 				<b>Q:</b>
 				<i>{{q.id}}</i> &nbsp;
 				<b>{{q.name}}</b> &nbsp;
 				<span>{{q.type}}</span>
-				<fr on-click="{?{ qq('q.edit',true); ctx.ist.recalc(); }}">[Edit]</fr>
+				<fr x-setcu-qedit='true' on-click="{{qeditfn}}">[Edit]</fr>
 			</div>
-			<div class="edit {:{ qq('q.edit') ? '' :'hide'}}">
+			<div class="edit {{q.edit.?.:hide}}">
 				<b>Q:</b>
 				<i>{{q.id}}</i> &nbsp;
 				<input value="{{q.name}}" value-bind />
@@ -70,7 +70,8 @@
 					<option value="DatePicker">DatePicker</option>
 					<option value="DateTime">DateTime</option>
 				</select>
-				<fr on-click="{?{ qq('q.edit',false); ctx.ist.recalc(); }}">[Done]</fr>
+				<fr x-setcu-qedit='false' on-click="{{qeditfn}}">[Done]</fr>
+				<!-- <fr on-click="{?{ qq('q.edit',false); ctx.ist.recalc(); }}">[Done]</fr> -->
 			</div>
 		</div>
 	</template>
@@ -130,7 +131,12 @@
 					}
 				]
 			}
-		], data = { forms }, ctx = {};
+		], data = { forms }, ctx = {
+			qeditfn: function (ctx, path, qq, event) {
+				qq('q.edit', ctx._qedit === 'true');
+				ctx.ist.recalc();
+			}
+		};
 		var tmp = new Templar(document.body, '#form-list', data, ctx);
 		tmp.exec();
 		// JSON.stringify(data.forms[0].pages.map(x=> x.questions.map(x=> JSON.stringify(x))), null, 2)

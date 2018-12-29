@@ -30,6 +30,7 @@ attributes:
   * model-xxx - alias. specify a path, or defaults to last model (or root)
   * (template|tmp) - value should resolve to an element to use as template
   * repeat-xxx - repeat over array. specify array and model alias
+  * setc(u)-xxx - set root ctx variable, u triggers _underscore name
   * drag(-x) - adds drag for element (x is "scope," should match drop)
   * drop(i)(-x) - adds drop for element
     * only for arrays, 
