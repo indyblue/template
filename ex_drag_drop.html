@@ -13,17 +13,20 @@
 	<!-- <script type="text/javascript" src='templar.min.js'></script> -->
 
 	<style>
-		.d,
-		.p {
-			background-color: red;
-			height: 50px;
-			width: 0;
-			margin-top: 10px;
+		.hide {
+			display: none;
 		}
 
-		div {
+		fr {
+			float: right;
+			overflow: hidden;
+		}
+
+		.form,
+		.screen,
+		.question {
 			border: 1px solid black;
-			padding: 55px;
+			padding: 10px;
 		}
 	</style>
 </head>
@@ -46,12 +49,29 @@
 			<divt x-tmp='#question' x-repeat-q='s.questions.=id'></divt>
 		</div>
 	</template>
+
 	<template id='question'>
 		<div class='question' x-drag-q x-dropi-q x-model-q>
-			<b>Q:</b>
-			<i>{{q.id}}</i> &nbsp;
-			<b>{{q.name}}</b> &nbsp;
-			<span>{{q.type}}</span>
+			<div class="disp {:{ qq('q.edit') ? 'hide' :'' }}">
+				<b>Q:</b>
+				<i>{{q.id}}</i> &nbsp;
+				<b>{{q.name}}</b> &nbsp;
+				<span>{{q.type}}</span>
+				<fr on-click="{?{ qq('q.edit',true); ctx.ist.recalc(); }}">[Edit]</fr>
+			</div>
+			<div class="edit {:{ qq('q.edit') ? '' :'hide'}}">
+				<b>Q:</b>
+				<i>{{q.id}}</i> &nbsp;
+				<input value="{{q.name}}" value-bind />
+				<select value="{{q.type}}" value-bind>
+					<option value="TextField">TextField</option>
+					<option value="TextArea">TextArea</option>
+					<option value="Checkbox">Checkbox</option>
+					<option value="DatePicker">DatePicker</option>
+					<option value="DateTime">DateTime</option>
+				</select>
+				<fr on-click="{?{ qq('q.edit',false); ctx.ist.recalc(); }}">[Done]</fr>
+			</div>
 		</div>
 	</template>
 
@@ -110,18 +130,10 @@
 					}
 				]
 			}
-		], data = { forms }, ctx = {
-			drag: function (ctx, path, qq, ev) {
-				console.log('drag', ctx.q);
-				ev.dataTransfer.setData("text", path);
-			},
-			dragOver: function (ctx, path, qq, ev) { ev.preventDefault(); },
-			drop: function (ctx, path, qq, ev) {
-				console.log('drop', ctx[ctx.lastModel], ev.dataTransfer.getData('text'), ev);
-			},
-		};
+		], data = { forms }, ctx = {};
 		var tmp = new Templar(document.body, '#form-list', data, ctx);
 		tmp.exec();
+		// JSON.stringify(data.forms[0].pages.map(x=> x.questions.map(x=> JSON.stringify(x))), null, 2)
 	</script>
 </body>
 

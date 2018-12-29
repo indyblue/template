@@ -57,6 +57,7 @@ var Templar;
         if (ctx.debug & 4) console.log('attr', a.name, a.value);
         ist._patLoop(a, 'value', ctx, a.name);
         _moduleLoop(a.name, a.value, e, ctx);
+        if (a.name === 'value' && e.nodeName == 'SELECT') { e.value = a.value; }
         if (a.name === 'checked' && a.value == 'false') { e[a.name] = false; }
       }
 
@@ -140,10 +141,9 @@ var Templar;
       return val;
     },
     cbAutoChange: function (ctx, path) {
-      var o = ctx, p = path.slice();
-      while (p.length > 1) o = o[p.shift()];
-      o[p[0]] = this.value;
-      if (ctx.debug & 8) console.log('change-value-bind', this.value, o, p[0]);
+      //var stack = [];
+      pat.eval(ctx, path, this.value); //, stack);
+      //console.log('change-value-bind', this.value, path, stack[0].o);
     },
 
     rxPat: /[.\[\]]+/g,
@@ -176,11 +176,11 @@ var Templar;
         o = pat.kvSet(o, kv, ctx, key, p, spath);
         if (typeof o === 'undefined') {
           if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
-          o = ''; kv = null; break;
+          o = ''; break;
         }
       }
       if (retKV) return kv;
-      if (!_.isnull(setValue) && kv && kv.in) o = kv.o[kv.key] = setValue;
+      if (!_.isnull(setValue) && kv && _.isobj(kv.o)) o = kv.o[kv.key] = setValue;
       if (ctx.debug & 8) console.log('eval', spath, o);
       return o;
     },
@@ -193,14 +193,15 @@ var Templar;
       return o;
     },
     checkKey: function (o, key, ctx, p) {
-      var retval = {};
+      var retval = { o: o, key: key, in: false };
       if (_.in(key, o)) retval = { o: o, key: key, in: true };
-      else if (domMon && domMon.isStrongKey(o, key)) retval = domMon.arrayIndex(o, key);
-      else retval = pat.isPtr(o, key, ctx, p);
+      else if (domMon && domMon.isStrongKey(o, key))
+        retval = domMon.arrayIndex(o, key) || retval;
+      else retval = pat.isPtr(o, key, ctx, p) || retval;
       return retval;
     },
     isPtr: function (o, key, ctx, pr) {
-      if ('@*'.indexOf(key[0]) < 0) return { o: o };
+      if ('@*'.indexOf(key[0]) < 0) return;
       var addr = key[0] === '@', tmp;
       key = key.substr(1);
       if (key[0] === '*') key = key.substr(1);
@@ -213,7 +214,7 @@ var Templar;
       }
       if ((tmp = tryKey(key)) !== undefined) return tmp;
       if ((tmp = tryKey('_' + key)) !== undefined) return tmp;
-      return { o: o };
+      return;
     }
   };
 
@@ -373,7 +374,7 @@ var Templar;
       for (i = 0; i < o.length; i++) {
         if (_.in(k, o[i]) && o[i][k] == v) return { o: o, key: i, in: true };
       }
-      return { o: o };
+      return;
     };
     domMon.arrayPath = function (path, arr, i, kv) {
       kv = kv || {}; arr = arr || [];
