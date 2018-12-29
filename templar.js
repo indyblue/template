@@ -4,6 +4,8 @@ attributes:
   (data-|x-)model-xxx - alias. specify a path, or defaults to last model (or root)
   (data-|x-)(template|tmp) - value should resolve to an element to use as template
   (data-|x-)repeat-xxx - repeat over array. specify array and model alias
+event args: ctx, path, qq, event
+{?:{}} args: ctx, qq, event
 debug:
   1: node
   2: text
@@ -127,7 +129,7 @@ var Templar;
     rx: /{{\s*(.+?)\s*}}/ig,
     cb: function (ctx, name, all, spath) {
       var path = curlyPat.expand(spath, ctx),
-        val = curlyPat.eval(path, ctx);
+        val = curlyPat.eval(ctx, path);
       val = curlyPat.event(path, val, ctx, name);
       if (val === null) val = all;
       if (val instanceof Date) val = val.toString();
@@ -149,7 +151,7 @@ var Templar;
       if (ename) {
         if (ctx.debug & 8) console.log('bind', ename, e.nodeName);
         e.addEventListener(ename, fn.bind(e, ctx, path,
-          function (p, v) { return curlyPat.eval(p, ctx, v); }));
+          curlyPat.eval.bind(null, ctx)));
       }
       return val;
     },
@@ -180,48 +182,54 @@ var Templar;
       if (join === true) return curlyPat.join(path);
       return path;
     },
-    eval: function (path, ctx, setValue) {
+    eval: function (ctx, path, setValue, parentIdx) {
       if (_.isstr(path)) path = curlyPat.expand(path, ctx);
       var o = ctx, p = path.slice(), key, spath = curlyPat.join(path)
-        , isset = !_.isnull(setValue), setKey = isset ? p.pop() : null;
+        , isset = !_.isnull(setValue) || parentIdx
+        , setKey = isset ? p.pop() : null;
       while (key = p.shift()) {
-        if (_.in(key, o)) o = o[key];
-        else if (domMon && domMon.isStrongKey(o, key)) o = domMon.arrayKey(o, key);
-        else o = curlyPat.isPtr(key, o, ctx, p, spath); // "fails" to undefined
+        var kv = curlyPat.checkKey(o, key, ctx, p);
+        if (kv[3]) {
+          o = kv[1](o, ctx, key, spath, curlyPat.eval.bind(null, ctx));
+          break;
+        } else if (kv[2]) {
+          o = kv[1]; break;
+        } else if (kv[1] === true) o = o;
+        else if (_.in(kv[1], o)) o = o[kv[1]];
+        else o = undefined;
         if (typeof o === 'undefined') {
           if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
           o = ''; break;
         }
       }
       if (isset) {
-        if (_.in(setKey, o)) { o = o[setKey] = setValue; }
-        else {
-          var k2 = curlyPat.isPtr(setKey, o, ctx, true);
-          if (_.in(k2, o)) { o = o[k2] = setValue; }
-        }
+        var kv = curlyPat.checkKey(o, setKey, ctx, p);
+        if (!parentIdx && _.in(kv[1], o)) { o = o[kv[1]] = setValue; }
+        else if (parentIdx) return kv;
       }
-      if (ctx.debug & 8) console.log('eval', spath, o, stale, strict);
+      if (ctx.debug & 8) console.log('eval', spath, o);
       return o;
     },
-    isPtr: function (key, o, ctx, pr, spath) {
-      if ('@*'.indexOf(key[0]) < 0) return;
+    checkKey: function (o, key, ctx, p) {
+      var retval = [];
+      if (_.in(key, o)) retval = [o, key];
+      else if (domMon && domMon.isStrongKey(o, key)) retval = domMon.arrayIndex(o, key);
+      else retval = curlyPat.isPtr(o, key, ctx, p);
+      return retval;
+    },
+    isPtr: function (o, key, ctx, pr) {
+      if ('@*'.indexOf(key[0]) < 0) return [o];
       var addr = key[0] === '@', tmp;
       key = key.substr(1);
       if (key[0] === '*') key = key.substr(1);
-      else if (addr && (!pr || pr.length === 0) && _.in(key, o)) return key;
+      else if (addr && (!pr || pr.length === 0) && _.in(key, o)) return [o, key, addr];
       function tryKey(k) {
-        if (pr === true && _.in(k, ctx)) {
-          return ctx[k];
-        } else if (_.in(k, ctx) && _.in(ctx[k], o)) {
-          if (addr) return ctx[k];
-          else return o[ctx[k]];
-        } else if (_.in(k, ctx) && _.isfn(ctx[k])) {
-          return ctx[k](o, ctx, key, spath,
-            function (p) { return curlyPat.eval(p, ctx); });
-        }
+        if (_.in(k, ctx) && _.in(ctx[k], o)) return [o, ctx[k], addr];
+        else if (_.in(k, ctx) && _.isfn(ctx[k])) return [o, ctx[k], addr, true];
       }
       if ((tmp = tryKey(key)) !== undefined) return tmp;
       if ((tmp = tryKey('_' + key)) !== undefined) return tmp;
+      return [o];
     }
   };
 
@@ -231,7 +239,7 @@ var Templar;
       var ist = this, e = ctx._node
         , fnbody = type === ':' ? 'return ' + fnbody : fnbody
         , fn = (new Function('ctx, qq, event', fnbody))
-          .bind(e, ctx, function (p, v) { return curlyPat.eval(p, ctx, v); });
+          .bind(e, ctx, curlyPat.eval.bind(null, ctx));
       if (/^on-?/i.test(name)) {
         e.addEventListener(name.replace(/^on-?/i, ''), fn);
         e.attributes.removeNamedItem(name); delete e[name];
@@ -296,7 +304,7 @@ var Templar;
     };
     dmProt.recalcRpt = function (ctx) {
       this.rptList.forEach(function (obj, spath, el) {
-        var arr = curlyPat.eval(spath, obj.ctx);
+        var arr = curlyPat.eval(obj.ctx, spath);
         if (_.isarr(arr)) {
           domMon.arrayRemove(arr, obj.arr, obj.key, 'value');
           domMon.arrayAdd(arr, obj.arr, obj.key, 'value', obj.ctx, el);
@@ -377,23 +385,18 @@ var Templar;
     domMon.cleanPath = function (spath) {
       return spath.replace(/\.\d+=/g, '.=');
     };
-    domMon.cleanValue = function (value) {
-      if (value instanceof Date) return value.getDate();
-      return value;
-    };
     domMon.isStrongKey = function (obj, key) {
       return _.isarr(obj) && key.indexOf('=') >= 0;
     };
-    domMon.arrayKey = function (obj, key) {
-      if (!domMon.isStrongKey(obj, key)) return obj;
+    domMon.arrayIndex = function (obj, key) {
       var s = key.split('='), i = s[0], k = s[1], v = s[2] || '', o = obj;
-      if (i === '' && v === '') return o;
+      if (i === '' && v === '') return [o, true];
       var c = domMon.cleanKey;
-      if (_.in(i, o) && (v === '' || (_.in(k, o[i]) && c(o[i][k]) == c(v)))) return o[i];
+      if (_.in(i, o) && (v === '' || (_.in(k, o[i]) && c(o[i][k]) == c(v)))) return [o, i];
       for (i = 0; i < o.length; i++) {
-        if (_.in(k, o[i]) && o[i][k] == v) return o[i];
+        if (_.in(k, o[i]) && o[i][k] == v) return [o, i];
       }
-      return undefined;
+      return [o];
     };
     domMon.arrayPath = function (path, arr, i, kv) {
       kv = kv || {}; arr = arr || [];
@@ -446,6 +449,45 @@ var Templar;
     }
   }
 
+  function dragGoAfter(ev) {
+    var rect = ev.target.getBoundingClientRect();
+    return (rect.height / 2) < ev.offsetY;
+  }
+
+  var dragMod = {
+    rx: _.rxAtt(/(drag|drop)(?:-([a-z]\w*))?$/i),
+    cb: function (mkey, value, e, ctx) {
+      var hasIdx = !value, op = mkey[1], scope = mkey[2],
+        apath = curlyPat.expand(value || ctx.lastModel, ctx);
+      value = curlyPat.join(apath);
+      if (op === 'drag') {
+        e.draggable = true;
+        e.ondragstart = function (ev) {
+          var tsrc = [scope, value].join('\0');
+          ev.dataTransfer.setData("text", tsrc);
+        };
+      } else {
+        e.ondragover = function (ev) { ev.preventDefault(); };
+        e.ondrop = function (ev) {
+          var txt = ev.dataTransfer.getData("text"), data = txt.split('\0');
+          if (scope && scope !== data[0]) return;
+          ev.stopPropagation();
+          var tkv = curlyPat.eval(ctx, apath, null, hasIdx),
+            tIdx = tkv[1], tArr = tkv[0],
+            skv = curlyPat.eval(ctx, data[1], null, hasIdx),
+            sIdx = skv[1], sArr = skv[0], sObj = sArr.splice(sIdx, 1)[0],
+            after = dragGoAfter(ev), fn = after ? 'push' : 'unshift';
+          if (after && !_.isnull(tIdx)) tIdx++;
+          console.log('drop', data[1], '->', value, after ? 'after' : 'before', hasIdx, sIdx, '->', tIdx, fn);
+          if (sArr === tArr && sIdx < tIdx - 1) tIdx--;
+          if (_.isnull(tIdx)) tArr[fn](sObj);
+          else tArr.splice(tIdx, 0, sObj);
+          ctx.ist.recalc();
+        };
+      }
+    }
+  };
+
   var rptMod = {
     rx: _.rxAtt(/repeat-([a-z]\w*)$/i),
     cb: function (mkey, value, e, ctx) {
@@ -460,7 +502,7 @@ var Templar;
       rptMod.cbChildLoop(el, ctx);
     },
     cbChildLoop: function (el, ctx, start, end) {
-      var arr = curlyPat.eval(ctx._rkey, ctx), ist = ctx.ist, kv = {};
+      var arr = curlyPat.eval(ctx, ctx._rkey), ist = ctx.ist, kv = {};
       if (domMon) domMon.arrayPath(ctx._rkey, [], '', kv);
       if (ist._domMon) ist._domMon.rptStart(ctx._rskey, el, ctx, kv.key);
       if (!_.isarr(arr)) return;
@@ -486,5 +528,5 @@ var Templar;
   };
 
   cls.defaultPatterns = [curlyPat, funcPat];
-  cls.defaultModules = [modelMod, tmplMod, setMod, rptMod];
+  cls.defaultModules = [modelMod, tmplMod, setMod, dragMod, rptMod];
 })();
