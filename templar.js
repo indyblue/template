@@ -1,19 +1,3 @@
-/*
-attributes:
-  value-bind - add change event to value
-  (data-|x-)model-xxx - alias. specify a path, or defaults to last model (or root)
-  (data-|x-)(template|tmp) - value should resolve to an element to use as template
-  (data-|x-)repeat-xxx - repeat over array. specify array and model alias
-event args: ctx, path, qq, event
-{?:{}} args: ctx, qq, event
-debug:
-  1: node
-  2: text
-  4: attr
-  8: eval
-  16: repeat
-  32: domMon
-*/
 'use strict';
 var Templar;
 (function () {
@@ -257,7 +241,7 @@ var Templar;
     var lastRC = 0, pendRC = false;
     dmProt.recalc = function (ctx) {
       if (!lastRC) {
-        this.recalcPat(ctx);
+        this.recalcPat();
         this.recalcRpt(ctx);
         pendRC = false;
         lastRC++;

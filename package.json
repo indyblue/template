@@ -5,9 +5,12 @@
   "dependencies": {
     "websocket": "^1.0.28"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "uglify-js": "^3.4.9"
+  },
   "scripts": {
     "start": "node 0ws.js",
+    "min": "uglifyjs poly-map.js ttools.js templar.js -c -m -o templar.min.js",
     "build": "babel stamp2.js -o stamp2_ie.js --presets env"
   },
   "repository": {

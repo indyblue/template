@@ -24,10 +24,6 @@ var templarTools;
   _.isText = function (obj) { return obj instanceof Text; };
   _.isComment = function (obj) { return obj instanceof Comment; };
   _.isDocFrag = function (obj) { return obj instanceof DocumentFragment; };
-  _.rxMatch = function (rx, str, i) {
-    if (!(rx instanceof RegExp) || !rx.test(str)) return;
-    return rx.exec(str)[i];
-  };
   _.rxAtt = function (rx) { return new RegExp('^(?:data-|x-)?' + rx.source, rx.flags); }
 
   _.isAttached = function (el) {
@@ -45,24 +41,6 @@ var templarTools;
   };
   _.isws = function (str) { return /^\s*$/.test(str); };
 
-  _.isolateText = function (obj) {
-    if (!_.isNwText(obj)) return obj;
-    var first = obj, last = obj, par = obj.parentNode;
-    while (_.isText(first.previousSibling)) first = first.previousSibling;
-    while (_.isText(last.nextSibling)) last = last.nextSibling;
-    if (!first.previousSibling && !last.nextSibling) {
-      var par = obj.parentNode
-      if (first === last) return par.firstChild;
-      par.textContent = par.textContent;
-      return par.firstChild;
-    } else {
-      var span = document.createElement('span');
-      _.before(span, first);
-      span.textContent = first.wholeText;
-      _.getRange(first, last).deleteContents();
-      return span;
-    }
-  };
   _.getFragRange = function (el) {
     if (!_.isDocFrag(el)) return;
     return _.getRange(el);
