@@ -45,6 +45,13 @@ patterns:
 * main data model is always "model"
 * when repeating or using model-xxx, you can create aliases for any part or all of the data model.
 * aliases can only be created for model.
+* ops: defaults in pat.ops, but unique shallow copy added to every tmp (ctx.ops)
+  * mostly comparison, ==, >, <, etc
+    * comparisons are string-only; so inequalities not very useful, since '4'>'20'.
+  * also inline if, in this format {{model.path.?.trueval:falseval}}
+  * setc (set constant), in this format: {{model.object.setc.key.value}}
+    * if value is all numeric, it will be parseInt'ed
+    * 1/0 should be used instead of true/false (which would be left as strings)
 
 event:
 * can either be standard attribute (e.g. onclick) or dashed (e.g. on-click)
@@ -83,8 +90,8 @@ debug flags: (ctx.debug, bitfield, so add together
 * 64: drag&drop
 
 specs: (at last count)
-* 25.4kB total
-* 13.8kB minified
-* 5.2kB min/gz
+* 26.2kB total
+* 13.5kB minified
+* 5.0kB min/gz
 
 - originally based on the concept of stamp by J Gregorio https://github.com/jcgregorio/stamp

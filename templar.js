@@ -4,26 +4,25 @@ var Templar;
   var _ = templarTools;
   /****************************************************************************/
   var cls = Templar = function (par, tmp, model, ctx) {
-    var ist = this, _par = _.elCheck(par), _temp = _.elCheck(tmp);
+    var ist = this, _par = _.elCheck(par), _temp = _.elCheck(tmp)
+      , odp = Object.defineProperty;
     function CTX() { };
-    Object.defineProperty(CTX.prototype, "model", {
-      get: function () { return ist.model; }
-    });
-    Object.defineProperty(CTX.prototype, "ist", {
-      get: function () { return ist; }
-    });
+    odp(CTX.prototype, "model", { get: function () { return ist.model; } });
+    odp(CTX.prototype, "ist", { get: function () { return ist; } });
+    odp(CTX.prototype, "ops", { get: function () { return ist.ops; } });
     ist.model = model;
+    ist.ops = _.oapply({}, pat.ops);
     var _ctx = _.oapply(new CTX(), ctx);
 
     ist.patterns = cls.defaultPatterns;
     ist.modules = cls.defaultModules;
     if (domMon) {
       ist._domMon = new domMon();
-      ist.recalc = function () { ist._domMon.recalc(_ctx, ist) };
-      ist.monLog = function () {
-        console.log('watchlist', ist._domMon.watchList);
-        console.log('rptList', ist._domMon.rptList);
-      };
+      ist.recalc = function () { ist._domMon.recalc() };
+      // ist.monLog = function () {
+      //   console.log('watchlist', ist._domMon.watchList);
+      //   console.log('rptList', ist._domMon.rptList);
+      // };
     }
 
     ist.exec = function () { return ist._exec(_temp, _ctx, _par); }
@@ -38,23 +37,23 @@ var Templar;
     }
 
     function _traverse(e, refctx) {
-      if (refctx.debug & 1) console.log('node', _.nodePath(e));
+      // if (refctx.debug & 1) console.log('node', _.nodePath(e));
       if (_.isComment(e)) return e;
-      if ((e = _.elCheck(e)) === undefined) return;
+      if ((e = _.elCheck(e)) === void 0) return;
       var ctx = _.oapply(new CTX(), refctx, e);
 
       if (_.isSingleTextChild(e)) {
-        if (ctx.debug & 2) console.log('solo-text', e.nodeName, e.nodeValue);
+        // if (ctx.debug & 2) console.log('solo-text', e.nodeName, e.nodeValue);
         ist._patLoop(e, 'innerHTML', ctx, '');
         ctx._skipChildren = true;
       } else if (_.isNwText(e)) {
-        if (ctx.debug & 2) console.log('text', e.nodeName, e.nodeValue);
+        // if (ctx.debug & 2) console.log('text', e.nodeName, e.nodeValue);
         ist._patLoop(e, 'nodeValue', ctx, '', true);
       }
 
       if (e.attributes) for (var i = e.attributes.length - 1; i >= 0; i--) {
         var a = e.attributes[i];
-        if (ctx.debug & 4) console.log('attr', a.name, a.value);
+        // if (ctx.debug & 4) console.log('attr', a.name, a.value);
         ist._patLoop(a, 'value', ctx, a.name);
         _moduleLoop(a.name, a.value, e, ctx);
         if (a.name === 'value' && e.nodeName == 'SELECT') { e.value = a.value; }
@@ -134,7 +133,7 @@ var Templar;
         fn = pat.cbAutoChange;
       }
       if (ename) {
-        if (ctx.debug & 8) console.log('bind', ename, e.nodeName);
+        // if (ctx.debug & 8) console.log('bind', ename, e.nodeName);
         e.addEventListener(ename, fn.bind(e, ctx, path,
           pat.eval.bind(null, ctx)));
       }
@@ -173,29 +172,29 @@ var Templar;
       if (!_.isarr(stack)) stack = [];
       while (key = p.shift()) {
         kv = pat.checkKey(o, key, ctx, p); stack.unshift(kv);
-        if (typeof o === 'undefined' && !kv.fn && !kv.addr) {
-          if (ctx.debug & 8) console.warn('path not found', key, ' - ', spath);
+        if (o === void 0 && !kv.fn && !kv.addr && !kv.skip) {
+          //console.warn('path not found', key, ' - ', spath, kv);
           o = ''; break;
         }
         o = pat.kvSet(o, kv, ctx, key, p, spath);
       }
       if (retKV) return kv;
       if (!_.isnull(setValue) && kv && _.isobj(kv.o)) o = kv.o[kv.key] = setValue;
-      if (ctx.debug & 8) console.log('eval', spath, o);
+      // if (ctx.debug & 8) console.log('eval', spath, o);
       return o;
     },
     kvSet: function (o, kv, ctx, key, p, spath) {
-      if (kv.fn) o = kv.fn(o, ctx, key, p, spath, pat.eval.bind(null, ctx));
+      if (kv.fn) o = kv.fn(o, p, ctx, key, spath, pat.eval.bind(null, ctx));
       else if (kv.addr) o = kv.key;
       else if (kv.skip) o = o;
       else if (kv.in) o = o[kv.key];
-      else o = undefined;
+      else o = void 0;
       return o;
     },
     checkKey: function (o, key, ctx, p) {
       var retval = { o: o, key: key, in: false };
       if (_.in(key, o)) retval = { o: o, key: key, in: true };
-      else if (_.in(key, pat.ops)) retval = { o: o, fn: pat.ops[key] };
+      else if (_.in(key, ctx.ops)) retval = { o: o, fn: ctx.ops[key] };
       else if (domMon && domMon.isStrongKey(o, key))
         retval = domMon.arrayIndex(o, key) || retval;
       else retval = pat.isPtr(o, key, ctx, p) || retval;
@@ -213,17 +212,23 @@ var Templar;
           return { o: o, key: ctx[k], in: true, addr: addr };
         else if (_.in(k, ctx) && _.isfn(ctx[k])) return { o: o, fn: ctx[k] };
       }
-      if ((tmp = tryKey(key)) !== undefined) return tmp;
-      if ((tmp = tryKey('_' + key)) !== undefined) return tmp;
+      if ((tmp = tryKey(key)) !== void 0) return tmp;
+      if ((tmp = tryKey('_' + key)) !== void 0) return tmp;
       return;
     },
     ops: {
-      '==': function (o, ctx, key, p) { return o && o.toString() == p.shift(); },
-      '>': function (o, ctx, key, p) { return o && o.toString() > p.shift(); },
-      '>=': function (o, ctx, key, p) { return o && o.toString() >= p.shift(); },
-      '<': function (o, ctx, key, p) { return o && o.toString() < p.shift(); },
-      '<=': function (o, ctx, key, p) { return o && o.toString() <= p.shift(); },
-      '?': function (o, ctx, key, p) { var ie = p.shift().split(':'); return o ? ie[0] : ie[1]; }
+      '==': function (o, p) { return o && o.toString() == p.shift(); },
+      '>': function (o, p) { return o && o.toString() > p.shift(); },
+      '<': function (o, p) { return o && o.toString() < p.shift(); },
+      '?': function (o, p) { var ie = p.shift().split(':'); return o ? ie[0] : ie[1]; },
+      'setc': function (o, p, ctx) {
+        var kv = pat.checkKey(o, p.shift(), ctx, p), val = p.shift();
+        if (/\d+/.test(val)) val = parseInt(val);
+        if (_.isobj(o)) return function () {
+          o[kv.key] = val;
+          ctx.ist.recalc();
+        }
+      }
     }
   };
 
@@ -249,13 +254,13 @@ var Templar;
   { // domMon static props
     var dmProt = domMon.prototype;
     var lastRC = 0, pendRC = false;
-    dmProt.recalc = function (ctx) {
+    dmProt.recalc = function () {
       if (!lastRC) {
+        this.recalcRpt();
         this.recalcPat();
-        this.recalcRpt(ctx);
         pendRC = false;
         lastRC++;
-        var cb = this.recalc.bind(this, ctx);
+        var cb = this.recalc.bind(this);
         setTimeout(function () { lastRC = 0; if (pendRC) cb(); }, 200);
       } else pendRC = true;
     };
@@ -274,7 +279,7 @@ var Templar;
 
     dmProt.rptStart = function (spath, el, ctx, key) {
       spath = domMon.cleanPath(spath);
-      if (ctx.debug & 32) console.log('rptStart', spath, el, ctx);
+      // if (ctx.debug & 32) console.log('rptStart', spath, el, ctx);
       if (!this.rptList.has(spath, el))
         this.rptList.set(spath, el, {
           ctx: ctx, key: key, arr: []
@@ -282,13 +287,13 @@ var Templar;
     };
     dmProt.rptAdd = function (spath, el, item, i) {
       spath = domMon.cleanPath(spath);
-      if (ctx.debug & 32) console.log('rptAdd', spath, el, item);
+      // if (ctx.debug & 32) console.log('rptAdd', spath, el, item);
       var obj = this.rptList.get(spath, el);
       if (typeof i === 'number' && i >= 0 && i < obj.arr.length)
         obj.arr.splice(i, 0, item);
       else obj.arr.push(item);
     };
-    dmProt.recalcRpt = function (ctx) {
+    dmProt.recalcRpt = function () {
       this.rptList.forEach(function (obj, spath, el) {
         var arr = pat.eval(obj.ctx, spath);
         if (_.isarr(arr)) {
@@ -347,7 +352,7 @@ var Templar;
       oa.sort(function (a, b) { return nak[c(a[ok])] - nak[c(b[ok])]; });
       var opost = m(oa, ok).join(' ');
       if (opre !== opost) {
-        if (ctx.debug & 32) console.log('reorder', opre, '-->', opost);
+        // if (ctx.debug & 32) console.log('reorder', opre, '-->', opost);
         var frag = _.removeParent(el);
         for (var i = 0; i < oa.length; i++) { _.append(oa[i].el, frag) };
         _.append(frag, el);
@@ -372,7 +377,7 @@ var Templar;
       return spath.replace(/\.\d+=/g, '.=');
     };
     domMon.isStrongKey = function (obj, key) {
-      return _.isarr(obj) && /=/.test(key) && key !== '==';
+      return (_.isarr(obj) || _.isnull(obj)) && /=/.test(key) && key !== '==';
     };
     domMon.arrayIndex = function (obj, key) {
       var s = key.split('='), i = s[0], k = s[1], v = s[2] || '', o = obj;
@@ -402,7 +407,7 @@ var Templar;
       }
       path.push(key);
       var retval = pat.join(path);
-      if (weak && ctx.debug & 32) console.log('array weak key', retval);
+      // if (weak && ctx.debug & 32) console.log('array weak key', retval);
       return retval;
     };
   }
@@ -423,8 +428,8 @@ var Templar;
     rx: _.rxAtt(/(?:template|tmp)$/i),
     cb: function (mkey, value, e, ctx) {
       var elBody = _.elCheck(value);
-      if (!elBody) console.warn('template', value, 'not found');
-      else ctx._elBody = elBody.cloneNode(true);
+      if (elBody) ctx._elBody = elBody.cloneNode(true);
+      else console.warn('template', value, 'not found');
     }
   };
 
@@ -466,7 +471,7 @@ var Templar;
             after = dragGoAfter(ev), fn = after ? 'push' : 'unshift';
           if (after && !_.isnull(tIdx)) tIdx++;
           if (sArr === tArr && sIdx < tIdx - 1) tIdx--;
-          if (ctx.debug & 64) console.log('drop', data[1], '->', value, hasIdx, sIdx, '->', tIdx, fn);
+          // if (ctx.debug & 64) console.log('drop', data[1], '->', value, hasIdx, sIdx, '->', tIdx, fn);
           if (_.isnull(tIdx)) tArr[fn](sObj);
           else tArr.splice(tIdx, 0, sObj);
           ctx.ist.recalc();
@@ -494,7 +499,7 @@ var Templar;
       if (ist._domMon) ist._domMon.rptStart(ctx._rskey, el, ctx, kv.key);
       if (!_.isarr(arr)) return;
       start = start || 0; end = end || arr.length;
-      if (ctx.debug & 16) console.log('repeat', start, end, ctx._rkey);
+      // if (ctx.debug & 16) console.log('repeat', start, end, ctx._rkey);
       for (var i = start; i < end; i++)
         rptMod.cbChildItem(arr, i, ctx, el);
       _.append(ctx._rfrag, el);

@@ -16,10 +16,10 @@ var templarTools;
 
   _.isfn = function (val) { return typeof val === 'function'; };
   _.isobj = function (val) { return typeof val === 'object'; };
-  _.isnull = function (val) { return val === null || val === undefined; };
+  _.isnull = function (val) { return val === null || val === void 0; };
   _.in = function (key, obj) { return _.isobj(obj) && (key in obj); };
   _.isstr = function (val) { return typeof val === 'string'; };
-  _.isarr = function (val) { return typeof val !== 'undefined' && val instanceof Array; };
+  _.isarr = function (val) { return typeof val !== 'void 0' && val instanceof Array; };
   _.isElement = function (obj) { return obj instanceof Element; };
   _.isText = function (obj) { return obj instanceof Text; };
   _.isComment = function (obj) { return obj instanceof Comment; };
@@ -51,7 +51,7 @@ var templarTools;
     if (_.isDocFrag(first)) { last = first.lastChild; first = first.firstChild; }
     if (_.isRange(first) && first.resetBounds) return first.resetBounds();
     if (_.isarr(first)) { last = first[1]; first = first[0]; }
-    if (first === last || last === undefined) return first;
+    if (first === last || last === void 0) return first;
     if (_.isText(first)) first = _.before(document.createComment('s'), first);
     if (_.isText(last)) last = _.after(document.createComment('e'), last);
     var rng = document.createRange();
@@ -63,17 +63,17 @@ var templarTools;
   };
   _.elRemove = function (el) {
     if (_.isRange(el) && el.resetBounds) return el.resetBounds().extractContents();
-    if ((el = _.elCheck(el)) === undefined) return;
+    if ((el = _.elCheck(el)) === void 0) return;
     var eParent = _.elCheck(el.parentNode);
-    if (eParent === undefined) return;
+    if (eParent === void 0) return;
     return eParent.removeChild(el);
   };
   _.after = function (eNew, eRef) { return _.before(eNew, eRef, 1); };
   _.before = function (eNew, eRef, after) {
     if (_.isRange(eRef)) eRef = after ? eRef.lastNode : eRef.firstNode;
-    if ((eRef = _.elCheck(eRef)) === undefined) return;
+    if ((eRef = _.elCheck(eRef)) === void 0) return;
     var eParent = _.elCheck(eRef.parentNode);
-    if (eParent === undefined) return;
+    if (eParent === void 0) return;
     if (_.isRange(eNew)) eNew = eNew.resetBounds().extractContents();
     var ends = _.getFragRange(eNew);
     eParent.insertBefore(eNew, after ? eRef.nextSibling : eRef);
@@ -81,7 +81,7 @@ var templarTools;
     else return _.getRange(ends);
   };
   _.append = function (eNew, ePar) {
-    if ((ePar = _.elCheck(ePar)) === undefined) return;
+    if ((ePar = _.elCheck(ePar)) === void 0) return;
     if (_.isRange(eNew)) eNew = eNew.resetBounds().extractContents();
     var ends = _.getFragRange(eNew);
     ePar.appendChild(eNew);
@@ -94,10 +94,10 @@ var templarTools;
     return obj.hasAttribute(name);
   };
   _.elCheck = function (el) {
-    if (!el) return undefined;
+    if (!el) return void 0;
     if (_.isstr(el)) el = document.querySelector(el);
     if (!_.isElement(el) && !_.isDocFrag(el) && !_.isText(el) && !_.isComment(el))
-      return undefined;
+      return void 0;
     if (el.content) el = el.content;
     return el;
   };
@@ -105,14 +105,14 @@ var templarTools;
     var rng = _.getRange(el.firstChild, el.lastChild);
     return _.elRemove(rng);
   };
-  _.nodePath = function (el) {
-    var retval = [];
-    while (el) {
-      retval.unshift(el.nodeName || el.tagName);
-      el = el.parentNode;
-    }
-    return retval.join('->');
-  };
+  // _.nodePath = function (el) {
+  //   var retval = [];
+  //   while (el) {
+  //     retval.unshift(el.nodeName || el.tagName);
+  //     el = el.parentNode;
+  //   }
+  //   return retval.join('->');
+  // };
 
 })();
 

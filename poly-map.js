@@ -1,5 +1,5 @@
 (function () {
-  function nu(i) { return i !== undefined };
+  function nu(i) { return i !== void 0 };
   function MapShim() {
     this._kv = [];
     return this;
@@ -32,7 +32,7 @@
   mprot.set = function (key, value) {
     var obj = this._find(key);
     if (!obj) {
-      obj = { key: key, value: undefined };
+      obj = { key: key, value: void 0 };
       this._kv.push(obj);
     }
     obj.value = value;
@@ -56,7 +56,7 @@
   var dprot = DblMap.prototype;
   dprot.get = function (k1, k2) {
     var o1 = this.map.get(k1);
-    if (!o1) return undefined;
+    if (!o1) return void 0;
     var o2 = o1.get(k2);
     return o2;
   };
