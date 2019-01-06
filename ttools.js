@@ -126,6 +126,26 @@ var templarTools;
   //   return retval.join('->');
   // };
 
+  var thenArr = [], thenState = false, thenStart = null
+    , thenRun = function () {
+      var cb;
+      console.log('thenstart', thenArr.length);
+      while ((cb = thenArr.shift()) && thenArr.length > 10
+        && (Date.now() - thenStart) < 100) cb();
+      thenStart = Date.now();
+      console.log('then end', thenArr.length);
+      if (cb) {
+        thenState = true;
+        setTimeout(function () {
+          cb();
+          thenRun();
+        }, 0);
+      } else thenState = false;
+    };
+  _.then = function (cb) {
+    thenArr.push(cb);
+    if (!thenState) thenRun();
+  };
 })();
 
 if (!Element.prototype.matches)

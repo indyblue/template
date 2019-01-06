@@ -257,12 +257,14 @@ var Templar;
     var lastRC = 0, pendRC = false;
     dmProt.recalc = function () {
       if (!lastRC) {
-        this.recalcRpt();
-        this.recalcPat();
-        pendRC = false;
-        lastRC++;
-        var cb = this.recalc.bind(this);
-        setTimeout(function () { lastRC = 0; if (pendRC) cb(); }, 200);
+        var that = this;
+        that.recalcRpt(function () {
+          that.recalcPat();
+          pendRC = false;
+          lastRC++;
+          var cb = that.recalc.bind(that);
+          setTimeout(function () { lastRC = 0; if (pendRC) cb(); }, 200);
+        });
       } else pendRC = true;
     };
 
@@ -294,15 +296,16 @@ var Templar;
         obj.arr.splice(i, 0, item);
       else obj.arr.push(item);
     };
-    dmProt.recalcRpt = function () {
+    dmProt.recalcRpt = function (cb) {
       this.rptList.forEach(function (obj, spath, el) {
         var arr = pat.eval(obj.ctx, spath);
         if (_.isarr(arr)) {
-          domMon.arrayRemove(arr, obj.arr, obj.key, 'value');
-          domMon.arrayAdd(arr, obj.arr, obj.key, 'value', obj.ctx, el);
-          domMon.arrayOrder(arr, obj.arr, obj.key, 'value', el);
+          _.then(function () { domMon.arrayRemove(arr, obj.arr, obj.key, 'value'); });
+          _.then(function () { domMon.arrayAdd(arr, obj.arr, obj.key, 'value', obj.ctx, el); });
+          _.then(function () { domMon.arrayOrder(arr, obj.arr, obj.key, 'value', el); });
         }
       });
+      _.then(cb);
     };
     domMon.arrayRemove = function (na, oa, nk, ok) {
       var nl = na.length, cnt = 0;
@@ -335,10 +338,12 @@ var Templar;
         var nak = domMon.map(na, nk);
         for (var i = 0; i < na.length; i++) {
           if (!_.in(nak[i], oak)) { // if not in old keys, add
-            var insert = _.in(i, oa);
-            rptMod.cbChildItem(na, i, ctx, el);
-            if (insert) _.before(ctx._rfrag, oa[i + 1].el);
-            else _.append(ctx._rfrag, el);
+            _.then(function (i) {
+              var insert = _.in(i, oa);
+              rptMod.cbChildItem(na, i, ctx, el);
+              if (insert) _.before(ctx._rfrag, oa[i + 1].el);
+              else _.append(ctx._rfrag, el);
+            }.bind(this, i));
             cnt++;
           }
         }
