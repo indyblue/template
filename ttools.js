@@ -58,7 +58,7 @@ var templarTools;
     if (_.isarr(first)) { last = first[1]; first = first[0]; }
     if (first === last || last === void 0) return first;
     if (_.isText(first)) first = _.addComment(first, true);
-    if (_.isText(last)) last = _.addComment(first, false);
+    if (_.isText(last)) last = _.addComment(last, false);
     var rng = document.createRange();
     rng.firstNode = first; rng.lastNode = last;
     (rng.resetBounds = function () {

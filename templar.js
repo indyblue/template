@@ -431,8 +431,7 @@ var Templar;
       var elBody;
       if (_.in(value, ctx.ist.tmplCache)) {
         elBody = ctx.ist.tmplCache[value];
-      } else {
-        elBody = _.elCheck(value);
+      } else if (elBody = _.elCheck(value)) {
         elBody = _.checkEnds(elBody.cloneNode(true));
         if (!_.isobj(ctx.ist.tmplCache)) ctx.ist.tmplCache = {};
         ctx.ist.tmplCache[value] = elBody;
