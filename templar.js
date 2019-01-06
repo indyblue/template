@@ -44,7 +44,8 @@ var Templar;
 
       if (_.isSingleTextChild(e)) {
         // if (ctx.debug & 2) console.log('solo-text', e.nodeName, e.nodeValue);
-        ist._patLoop(e, 'innerHTML', ctx, '');
+        var contentType = _.elHasAttribute(e, 'as-html') ? 'innerHTML' : 'textContent';
+        ist._patLoop(e, contentType, ctx, '');
         ctx._skipChildren = true;
       } else if (_.isNwText(e)) {
         // if (ctx.debug & 2) console.log('text', e.nodeName, e.nodeValue);
@@ -427,8 +428,16 @@ var Templar;
   var tmplMod = {
     rx: _.rxAtt(/(?:template|tmp)$/i),
     cb: function (mkey, value, e, ctx) {
-      var elBody = _.elCheck(value);
-      if (elBody) ctx._elBody = elBody.cloneNode(true);
+      var elBody;
+      if (_.in(value, ctx.ist.tmplCache)) {
+        elBody = ctx.ist.tmplCache[value];
+      } else {
+        elBody = _.elCheck(value);
+        elBody = _.checkEnds(elBody.cloneNode(true));
+        if (!_.isobj(ctx.ist.tmplCache)) ctx.ist.tmplCache = {};
+        ctx.ist.tmplCache[value] = elBody;
+      }
+      if (elBody) ctx._elBody = elBody
       else console.warn('template', value, 'not found');
     }
   };

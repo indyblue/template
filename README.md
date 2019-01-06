@@ -26,6 +26,7 @@ tmp.recalc(); // refresh generated HTML, only changing DOM when necessary.
 
 attributes:
 * value-bind - add change event to value
+* as-html - if element has single text child, this triggers innerHTML pattern replacement
 * following attributes can either have no prefix, or data- or x- prefix
   * model-xxx - alias. specify a path, or defaults to last model (or root)
   * (template|tmp) - value should resolve to an element to use as template
@@ -66,7 +67,7 @@ event:
 
 DOM monitoring:
 * attribute patterns are always monitored
-* isSingleTextChild: monitored, uses innerHTML, so can contain html
+* isSingleTextChild: monitored, uses innerHTML, so can contain html (with as-html attribute)
 * other text nodes: not monitored, uses nodeValue, so only supports plain text
 * repeats:
   * if standard array index mode:

@@ -46,14 +46,19 @@ var templarTools;
     return _.getRange(el);
   };
   _.isRange = function (el) { return el instanceof Range; };
+  _.addComment = function (el, isBefore) {
+    if (!_.isText(el)) return el;
+    var fn = isBefore ? _.before : _.after;
+    return fn(document.createComment('s'), el);
+  };
   _.getRange = function (first, last) {
     if (!first) return;
     if (_.isDocFrag(first)) { last = first.lastChild; first = first.firstChild; }
     if (_.isRange(first) && first.resetBounds) return first.resetBounds();
     if (_.isarr(first)) { last = first[1]; first = first[0]; }
     if (first === last || last === void 0) return first;
-    if (_.isText(first)) first = _.before(document.createComment('s'), first);
-    if (_.isText(last)) last = _.after(document.createComment('e'), last);
+    if (_.isText(first)) first = _.addComment(first, true);
+    if (_.isText(last)) last = _.addComment(first, false);
     var rng = document.createRange();
     rng.firstNode = first; rng.lastNode = last;
     (rng.resetBounds = function () {
@@ -99,6 +104,13 @@ var templarTools;
     if (!_.isElement(el) && !_.isDocFrag(el) && !_.isText(el) && !_.isComment(el))
       return void 0;
     if (el.content) el = el.content;
+    return el;
+  };
+  _.checkEnds = function (el) {
+    if (_.isDocFrag(el)) {
+      _.addComment(el.firstChild, true);
+      _.addComment(el.lastChild, false);
+    }
     return el;
   };
   _.removeParent = function (el) {
