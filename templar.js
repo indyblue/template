@@ -257,9 +257,12 @@ var Templar;
     var lastRC = 0, pendRC = false;
     dmProt.recalc = function () {
       if (!lastRC) {
+        var dt0 = Date.now();
         var that = this;
-        that.recalcRpt(function () {
-          that.recalcPat();
+        that.recalcRpt()
+        that.recalcPat();
+        _.last(function () {
+          console.log('recalc end', Date.now() - dt0);
           pendRC = false;
           lastRC++;
           var cb = that.recalc.bind(that);
@@ -296,16 +299,17 @@ var Templar;
         obj.arr.splice(i, 0, item);
       else obj.arr.push(item);
     };
-    dmProt.recalcRpt = function (cb) {
+    dmProt.recalcRpt = function () {
       this.rptList.forEach(function (obj, spath, el) {
-        var arr = pat.eval(obj.ctx, spath);
-        if (_.isarr(arr)) {
-          _.then(function () { domMon.arrayRemove(arr, obj.arr, obj.key, 'value'); });
-          _.then(function () { domMon.arrayAdd(arr, obj.arr, obj.key, 'value', obj.ctx, el); });
-          _.then(function () { domMon.arrayOrder(arr, obj.arr, obj.key, 'value', el); });
-        }
+        _.then(function () {
+          var arr = pat.eval(obj.ctx, spath);
+          if (_.isarr(arr)) {
+            domMon.arrayRemove(arr, obj.arr, obj.key, 'value');
+            domMon.arrayAdd(arr, obj.arr, obj.key, 'value', obj.ctx, el);
+            domMon.arrayOrder(arr, obj.arr, obj.key, 'value', el);
+          }
+        });
       });
-      _.then(cb);
     };
     domMon.arrayRemove = function (na, oa, nk, ok) {
       var nl = na.length, cnt = 0;
@@ -328,9 +332,11 @@ var Templar;
     domMon.arrayAdd = function (na, oa, nk, ok, ctx, el) {
       if (!rptMod) return;
       var nl = na.length, cnt = 0;
-      if (!nk) while (oa.length < nl) {
-        rptMod.cbChildItem(na, oa.length, ctx, el);
-        _.append(ctx._rfrag, el);
+      if (!nk) for (var i = oa.length; i < nl; i++) {
+        _.then(function (i) {
+          rptMod.cbChildItem(na, i, ctx, el);
+          _.append(ctx._rfrag, el);
+        }, [i]);
         cnt++;
         if (cnt > 5000) break;
       } else {
@@ -343,7 +349,7 @@ var Templar;
               rptMod.cbChildItem(na, i, ctx, el);
               if (insert) _.before(ctx._rfrag, oa[i + 1].el);
               else _.append(ctx._rfrag, el);
-            }.bind(this, i));
+            }, [i]);
             cnt++;
           }
         }

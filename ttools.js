@@ -126,26 +126,46 @@ var templarTools;
   //   return retval.join('->');
   // };
 
-  var thenArr = [], thenState = false, thenStart = null
+  var thenArr = [], lastArr = [], thenState = false, thenStart = null
+    //, oDone = [], firstThen = null
+    , oEx = function (o) {
+      //o.dt0 = Date.now();
+      o.fn.apply(o.this, o.args);
+      //o.dtF = Date.now();
+      // oDone.push(o);
+      // if (o.dtF - o.dt0 > 100)
+      //   console.log(o.dtF - o.dt0, o);
+    }
     , thenRun = function () {
-      var cb;
-      console.log('thenstart', thenArr.length);
-      while ((cb = thenArr.shift()) && thenArr.length > 10
-        && (Date.now() - thenStart) < 100) cb();
+      //if (!firstThen) firstThen = Date.now();
+      var o;
+
+      while ((o = thenArr.shift()) && thenArr.length > 10
+        && (Date.now() - thenStart) < 100) { oEx(o); }
+
+      // if ((Date.now() - thenStart) > 100)
+      //   console.log('then timeout', Date.now() - firstThen,
+      //     Date.now() - thenStart, cnt,
+      //     'arrs:', thenArr.length, lastArr.length);
+
       thenStart = Date.now();
-      console.log('then end', thenArr.length);
-      if (cb) {
+      if (!o) o = lastArr.shift();
+
+      if (o) {
         thenState = true;
         setTimeout(function () {
-          cb();
+          oEx(o);
+          //o.fn.apply(o.this, o.args);
           thenRun();
         }, 0);
       } else thenState = false;
     };
-  _.then = function (cb) {
-    thenArr.push(cb);
+  _.then = function (fn, args, that, last) {
+    var arr = last ? lastArr : thenArr;
+    arr.push({ fn: fn, args: args || [], this: that });
     if (!thenState) thenRun();
   };
+  _.last = function (fn, args, that) { _.then(fn, args, that, true); };
 })();
 
 if (!Element.prototype.matches)
