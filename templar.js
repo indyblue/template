@@ -257,14 +257,15 @@ var Templar;
     var lastRC = 0, pendRC = false;
     dmProt.recalc = function () {
       if (!lastRC) {
+        //console.log('recalc start');
         var dt0 = Date.now();
         var that = this;
         that.recalcRpt()
         that.recalcPat();
-        _.last(function () {
+        pendRC = false;
+        lastRC++;
+      _.last(function () {
           console.log('recalc end', Date.now() - dt0);
-          pendRC = false;
-          lastRC++;
           var cb = that.recalc.bind(that);
           setTimeout(function () { lastRC = 0; if (pendRC) cb(); }, 200);
         });
