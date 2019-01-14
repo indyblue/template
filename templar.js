@@ -52,14 +52,13 @@ var Templar;
         ist._patLoop(e, 'nodeValue', ctx, '', true);
       }
 
-      if (e.attributes) for (var i = e.attributes.length - 1; i >= 0; i--) {
-        var a = e.attributes[i];
+      if (e.attributes) e.attributes.forEach(function (a, i) {
         // if (ctx.debug & 4) console.log('attr', a.name, a.value);
         ist._patLoop(a, 'value', ctx, a.name);
         _moduleLoop(a.name, a.value, e, ctx);
         if (a.name === 'value' && e.nodeName == 'SELECT') { e.value = a.value; }
         if (a.name === 'checked' && a.value == 'false') { e[a.name] = false; }
-      }
+      });
 
       if (_.isfn(ctx._handleChildren)) ctx._handleChildren(e, ctx);
       else { // default child functionality, if not overridden
@@ -91,20 +90,18 @@ var Templar;
       });
     }
     ist._patVal = function (value, ctx, name) {
-      for (var i = 0; i < ist.patterns.length; i++) {
-        var pat = ist.patterns[i];
+      ist.patterns.forEach(function (pat, i) {
         value = value.replace(pat.rx,
           pat.cb.bind(ist, ctx, name));
-      }
+      });
       return value;
     }
 
     function _moduleLoop(key, value, e, ctx) {
-      for (var i = 0; i < ist.modules.length; i++) {
-        var mod = ist.modules[i],
-          mkey = key.match(mod.rx);
+      ist.modules.forEach(function (mod, i) {
+        var mkey = key.match(mod.rx);
         if (mkey && _.isfn(mod.cb)) mod.cb(mkey, value, e, ctx);
-      }
+      });
     }
   };
 
@@ -264,7 +261,7 @@ var Templar;
         that.recalcPat();
         pendRC = false;
         lastRC++;
-      _.last(function () {
+        _.last(function () {
           console.log('recalc end', Date.now() - dt0);
           var cb = that.recalc.bind(that);
           setTimeout(function () { lastRC = 0; if (pendRC) cb(); }, 200);
@@ -275,13 +272,12 @@ var Templar;
     dmProt.patAdd = function (obj) { this.watchList.push(obj); };
     dmProt.recalcPat = function () {
       var wl = this.watchList;
-      for (var i = wl.length - 1; i >= 0; i--) {
-        var oi = wl[i];
-        if (!_.isAttached(oi.robj)) { wl.splice(i, 1); continue; }
+      wl.forEach(function (oi, i) {
+        if (!_.isAttached(oi.robj)) { wl.splice(i, 1); return; }
         var newval = oi.ctx.ist._patVal(oi.pattern, oi.ctx, oi.name);
-        if (oi.value === newval) continue;
+        if (oi.value === newval) return;
         oi.robj[oi.rkey] = oi.value = newval;
-      }
+      });
     };
 
     dmProt.rptStart = function (spath, el, ctx, key) {
@@ -320,13 +316,13 @@ var Templar;
         cnt++;
       } else {
         var nak = domMon.map(na, nk, true);
-        for (var i = oa.length - 1; i >= 0; i--) { //reverse order, removals
-          if (!_.in(oa[i][ok], nak)) { // if not in new keys, remove
+        oa.forEachRev(function (oai, i) {
+          if (!_.in(oai[ok], nak)) { // if not in new keys, remove
             var obj = oa.splice(i, 1)[0];
             _.elRemove(obj.el);
             cnt++;
           }
-        }
+        });
       }
       return cnt;
     };
@@ -367,7 +363,7 @@ var Templar;
       if (opre !== opost) {
         // if (ctx.debug & 32) console.log('reorder', opre, '-->', opost);
         var frag = _.removeParent(el);
-        for (var i = 0; i < oa.length; i++) { _.append(oa[i].el, frag) };
+        oa.forEach(function (oai) { _.append(oai.el, frag) });
         _.append(frag, el);
       }
     };
@@ -398,9 +394,9 @@ var Templar;
       var c = domMon.cleanKey;
       if (_.in(i, o) && (v === '' || (_.in(k, o[i]) && c(o[i][k]) == c(v))))
         return { o: o, key: i, in: true };
-      for (i = 0; i < o.length; i++) {
-        if (_.in(k, o[i]) && o[i][k] == v) return { o: o, key: i, in: true };
-      }
+      o.forEach(function (oi, i) {
+        if (_.in(k, oi) && oi[k] == v) return { o: o, key: i, in: true };
+      });
       return;
     };
     domMon.arrayPath = function (path, arr, i, kv) {
@@ -521,8 +517,8 @@ var Templar;
       start = start || 0; end = end || arr.length;
       // if (ctx.debug & 16) console.log('repeat', start, end, ctx._rkey);
       for (var i = start; i < end; i++)
-        rptMod.cbChildItem(arr, i, ctx, el);
-      _.append(ctx._rfrag, el);
+        _.then(rptMod.cbChildItem, [arr, i, ctx, el]);
+      _.then(_.append, [ctx._rfrag, el]);
     },
     cbChildItem: function (arr, i, ctx, el) {
       var ist = ctx.ist, ipath, kv;

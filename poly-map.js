@@ -85,6 +85,29 @@
     return o1.delete(k2);
   }
   window.DblMap = DblMap;
+
+  function forEach(cb, thisArg) {
+    for (var i = 0; i < this.length; i++)
+      cb.call(thisArg || this, this[i], i, this);
+  }
+  function forEachRev(cb, thisArg) {
+    for (var i = this.length - 1; i >= 0; i--)
+      cb.call(thisArg || this, this[i], i, this);
+  }
+  function map(cb, thisArg) {
+    var retarr = [];
+    for (var i = 0; i < this.length; i++)
+      retarr[i] = cb.call(thisArg || this, this[i], i, this);
+    return retarr;
+  }
+  var arrs = [Array, NamedNodeMap, NodeList, HTMLCollection];
+  forEach.call(arrs, function (a) {
+    var ap = a.prototype;
+    if (!ap.forEach) ap.forEach = forEach;
+    if (!ap.forEachRev) ap.forEachRev = forEachRev;
+    if (!ap.map) ap.map = map;
+  });
+
 })();
 
 // var t = new Map2();

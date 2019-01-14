@@ -137,7 +137,7 @@ var templarTools;
       //   console.log(o.dtF - o.dt0, o);
     }
     , thenRun = function () {
-      //if (!firstThen) firstThen = Date.now();
+      //if (!firstThen) firstThen = Date.now(); var cnt=0;
       var o;
 
       while ((o = thenArr.shift()) && thenArr.length > 10
