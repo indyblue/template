@@ -103,9 +103,10 @@
   var arrs = [Array, NamedNodeMap, NodeList, HTMLCollection];
   forEach.call(arrs, function (a) {
     var ap = a.prototype;
-    if (!ap.forEach) ap.forEach = forEach;
-    if (!ap.forEachRev) ap.forEachRev = forEachRev;
-    if (!ap.map) ap.map = map;
+    // defineProperty: default non-enumerable (won't show in a for...in)
+    if (!ap.forEach) Object.defineProperty(ap, 'forEach', { value: forEach });
+    if (!ap.forEachRev) Object.defineProperty(ap, 'forEachRev', { value: forEachRev });
+    if (!ap.map) Object.defineProperty(ap, 'map', { value: map });
   });
 
 })();
