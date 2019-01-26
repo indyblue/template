@@ -1,3 +1,4 @@
+'use strict';
 (function () {
   function nu(i) { return i !== void 0 };
   function MapShim() {

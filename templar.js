@@ -272,7 +272,7 @@ var Templar;
     dmProt.patAdd = function (obj) { this.watchList.push(obj); };
     dmProt.recalcPat = function () {
       var wl = this.watchList;
-      wl.forEach(function (oi, i) {
+      wl.forEachRev(function (oi, i) {
         if (!_.isAttached(oi.robj)) { wl.splice(i, 1); return; }
         var newval = oi.ctx.ist._patVal(oi.pattern, oi.ctx, oi.name);
         if (oi.value === newval) return;
@@ -394,9 +394,10 @@ var Templar;
       var c = domMon.cleanKey;
       if (_.in(i, o) && (v === '' || (_.in(k, o[i]) && c(o[i][k]) == c(v))))
         return { o: o, key: i, in: true };
-      o.forEach(function (oi, i) {
+      for (var i = 0; i < o.length; i++) {
+        var oi = o[i];
         if (_.in(k, oi) && oi[k] == v) return { o: o, key: i, in: true };
-      });
+      }
       return;
     };
     domMon.arrayPath = function (path, arr, i, kv) {
