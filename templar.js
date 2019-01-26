@@ -378,8 +378,13 @@ var Templar;
       return retval;
     };
 
+    var cleanKeyCache = {};
     domMon.cleanKey = function (key) {
-      if (key && _.isstr(key)) return key.replace(/\W+/g, '_');
+      if (key && _.isstr(key) && /\W/.test(key)) {
+        if (_.in(key, cleanKeyCache)) return cleanKeyCache[key];
+        var newKey = cleanKeyCache[key] = key.replace(/\W+/g, '_');
+        return newKey;
+      }
       else return key;
     };
     domMon.cleanPath = function (spath) {
@@ -389,14 +394,14 @@ var Templar;
       return (_.isarr(obj) || _.isnull(obj)) && /=/.test(key) && key !== '==';
     };
     domMon.arrayIndex = function (obj, key) {
-      var s = key.split('='), i = s[0], k = s[1], v = s[2] || '', o = obj;
+      var c = domMon.cleanKey,
+        s = key.split('='), i = s[0], k = s[1], v = c(s[2]) || '', o = obj;
       if (i === '' && v === '') return { o: o, skip: true };
-      var c = domMon.cleanKey;
-      if (_.in(i, o) && (v === '' || (_.in(k, o[i]) && c(o[i][k]) == c(v))))
+      if (_.in(i, o) && (v === '' || (_.in(k, o[i]) && c(o[i][k]) == v)))
         return { o: o, key: i, in: true };
       for (var i = 0; i < o.length; i++) {
         var oi = o[i];
-        if (_.in(k, oi) && oi[k] == v) return { o: o, key: i, in: true };
+        if (_.in(k, oi) && c(oi[k]) == v) return { o: o, key: i, in: true };
       }
       return;
     };
