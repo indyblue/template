@@ -378,11 +378,11 @@ var Templar;
       return retval;
     };
 
-    var cleanKeyCache = {};
+    var cleanKeyCache = {}, rxW = /\W/, rxWp = /\W+/g;
     domMon.cleanKey = function (key) {
-      if (key && _.isstr(key) && /\W/.test(key)) {
-        if (_.in(key, cleanKeyCache)) return cleanKeyCache[key];
-        var newKey = cleanKeyCache[key] = key.replace(/\W+/g, '_');
+      if (key && _.isstr(key) && rxW.test(key)) {
+        if (cleanKeyCache.hasOwnProperty(key)) return cleanKeyCache[key];
+        var newKey = cleanKeyCache[key] = key.replace(rxWp, '_');
         return newKey;
       }
       else return key;

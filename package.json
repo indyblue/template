@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "0ws.js",
   "dependencies": {
-    "websocket": "^1.0.28"
+    "websocket": "^1.0.28",
+    "textile.das": "~/www/node/das/my_modules/textile.das"
   },
   "devDependencies": {
     "uglify-js": "^3.4.9"

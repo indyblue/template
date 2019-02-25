@@ -111,6 +111,17 @@ const files = (dirname, prefix) => (req, res, next) => {
 };
 t.files = files();
 t.modFiles = p => files(__dirname, p);
+const rxRootDir = /^\+\//;
+const rxNMDir = /^\+nm\//;
+t.custFiles = (dir, p) => {
+	if (rxRootDir.test(dir)) {
+		dir = $path.join(process.cwd(), dir.replace(rxRootDir, ''));
+	} else if (rxNMDir.test(dir)) {
+		dir = $path.join(process.cwd(), 'node_modules', dir.replace(rxNMDir, ''));
+	}
+	return files(dir, p);
+}
+
 function handleDir(url, res) {
 	res.write(`<html><head></head><body><h3>Directory listing of '${url}'</h3>`);
 	for (let i of fs.readdirSync(fpath)) res.write(
@@ -184,6 +195,11 @@ function fmtEsMsg(event, data) {
 	return output;
 }
 
-if (module.parent == null) t.new({ wst: true }).addHandler(true, t.files).start();
+if (module.parent == null)
+	t.new({ wst: true })
+		.addHandler(/tmp\/(.*)/, t.modFiles(1))
+		.addHandler(/tex\/(.*)/, t.custFiles('+nm/textile.das/',1))
+		.addHandler(true, t.files)
+		.start();
 else module.exports = t;
 
