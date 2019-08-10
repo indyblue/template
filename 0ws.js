@@ -139,9 +139,10 @@ t.custFiles = (dir, p) => {
 
 function handleDir(fpath, url, res) {
   res.write(`<html><head></head><body><h3>Directory listing of '${url}'</h3>`);
+  const ulast = url.replace(/.*\/([^\/]+\/?)$/, '$1');
   for (let i of fs.readdirSync(fpath)) {
     res.write(
-      `<div><a href='${$join(url, i)}'>${i}</a></div>`);
+      `<div><a href='${$join(ulast, i)}'>${i}</a></div>`);
   }
   res.write('</body></html>');
   res.end();
