@@ -1,5 +1,9 @@
 const http = require('http');
-const [fs, $path] = [require('fs'), require('path'), require('url')];
+const fs = require('fs');
+const $path = require('path');
+const $url = require('url');
+const pathParse = p => new $url.URL(p, 'http://test.com/');
+const cleanPath = p => decodeURI(pathParse(p).pathname);
 
 const t = {};
 
@@ -42,6 +46,16 @@ const requestHandler = (that, handlers, request, response) => {
   request.dirname = that.path; const url = request.url;
   request.isClosed = false;
   request.on('close', () => { request.isClosed = true; });
+  request._data = '';
+  request._loaded = false;
+  request.setEncoding('utf8');
+  request.on('data', d => { request._data += d; });
+  request.on('end', () => { request._loaded = true; });
+  request.getData = () => new Promise((resolve) => {
+    if (request._loaded === true) resolve(request._data);
+    else request.on('end', () => { resolve(request._data); });
+  });
+  request.getJson = () => request.getData().then(d => JSON.parse(d));
   let pr = Promise.resolve();
   for (let h of handlers) {
     let urlMatch = meetsFilter(h.filter, request);
@@ -100,7 +114,7 @@ function res404(req, res) {
 
 const files = (dirname, prefix) => (req, res, next) => {
   if (!dirname) dirname = req.dirname;
-  let url = req.url;
+  let url = cleanPath(req.url);
   if (typeof prefix === 'number' && req.urlMatch instanceof Array) {
     url = req.urlMatch[prefix];
   }
