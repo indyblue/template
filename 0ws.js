@@ -9,7 +9,7 @@ const t = {};
 
 const defs = {
   path: process.cwd(),
-  port: 8080,
+  port: process.env.PORT || 8080,
   host: '127.0.0.1',
   handlers: []
 };
@@ -57,8 +57,8 @@ const requestHandler = (that, handlers, request, response) => {
   });
   request.getJson = () => request.getData().then(d => JSON.parse(d));
   let pr = Promise.resolve();
-  for (let h of handlers) {
-    let urlMatch = meetsFilter(h.filter, request);
+  for (const h of handlers) {
+    const urlMatch = meetsFilter(h.filter, request);
     if (urlMatch && typeof h.cb === 'function') {
       pr = pr.then(() => new Promise((resolve, reject) => {
         request.urlMatch = urlMatch;
@@ -139,8 +139,8 @@ t.custFiles = (dir, p) => {
 
 function handleDir(fpath, url, res) {
   res.write(`<html><head></head><body><h3>Directory listing of '${url}'</h3>`);
-  const ulast = url.replace(/.*\/([^\/]+\/?)$/, '$1');
-  for (let i of fs.readdirSync(fpath)) {
+  const ulast = url.replace(/.*\/([^/]+\/?)$/, '$1');
+  for (const i of fs.readdirSync(fpath)) {
     res.write(
       `<div><a href='${$join(ulast, i)}'>${i}</a></div>`);
   }
