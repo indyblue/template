@@ -4,7 +4,7 @@
   "main": "0ws.js",
   "dependencies": {
     "websocket": "^1.0.28",
-    "textile.das": "git://indyblue/textile.das"
+    "textile.das": "https://github.com/indyblue/textile.das"
   },
   "devDependencies": {
     "uglify-js": "^3.4.9"
